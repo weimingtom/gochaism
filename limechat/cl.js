@@ -15,7 +15,7 @@
  * で計算が可能です。
  * 
  * @author  gocha
- * @version 2010-10-02
+ * @version 2011-12-23
  */
 
 var scriptName = "cl";
@@ -221,26 +221,20 @@ function cl(prefix, target, formula, lang)
         case 4: // Loaded
             result = 'cl: something is technically wrong.';
             if (xmlhttp.status == 200) {
-                if (xmlhttp.responseText.match(/<img src=\"?\/images\/.*?calc.*?\.gif[^>]*>.*?<b>(.+?)<\/b>/i)) {
-                    result = RegExp.$1;
-                    result = decodeEntities(result);
-                    result = result.replace(/\xa0/g, ' ');
-                    result = result.replace(/<sup>(.*?)<\/sup>/g, '^$1');
-                    result = result.replace(/&times;/g, 'x');
-                    result = result.replace(/<.*?>/g, '');
+                calcResult = eval("(" + xmlhttp.responseText + ")");
+                if (calcResult.error == "")
+                {
+                    result = "" + calcResult.lhs + " = " + calcResult.rhs;
                 }
-                else {
-                    if (!formula.match(/[=＝]$/)) {
-                        formula += ' =';
-                        // send request again (to solve SEVEN-ELEVEn problem)
-                        xmlhttp.setTimeouts(5*1000, 5*1000, 15*1000, 15*1000);
-                        xmlhttp.open("GET", 'http://www.google.com/search?hl=' + lang + '&ie=utf-8&oe=utf-8&num=1&q=' + encodeURIComponent(formula) , true);
-                        xmlhttp.setRequestHeader('User-Agent', 'Mozilla/5.0 (compatible; limechat)');
-                        xmlhttp.send('');
-                        break;
+                else
+                {
+                    if (lang == "ja")
+                    {
+                        result = "cl: エラー[" + calcResult.error + "] 計算できないよう(*っ○<)";
                     }
-                    else {
-                        result = 'cl: unable to calc the formula.';
+                    else
+                    {
+                        result = "cl: unable to calc the formula; error (" + calcResult.error + ")";
                     }
                 }
             }
@@ -250,8 +244,9 @@ function cl(prefix, target, formula, lang)
         }
     };
     xmlhttp.setTimeouts(5*1000, 5*1000, 15*1000, 15*1000);
-    xmlhttp.open("GET", 'http://www.google.com/search?hl=' + lang + '&ie=utf-8&oe=utf-8&num=1&q=' + encodeURIComponent(formula) , true);
+    xmlhttp.open("GET", 'http://www.google.com/ig/calculator?hl=' + lang + '&ie=utf-8&oe=utf-8&q=' + encodeURIComponent(formula) , true);
     xmlhttp.setRequestHeader('User-Agent', 'Mozilla/5.0 (compatible; limechat)');
+    xmlhttp.setRequestHeader('X-Request-Source', 'XMLHttpRequest');
     xmlhttp.send('');
 }
 
@@ -272,6 +267,13 @@ function onTextPost(prefix, target, text)
 
     if (!chList[target.toLowerCase()])
         return;
+
+    //if (text.match(/^\.cl\s+(.*)/)) {
+    //    if (target == '#TASers' || target == '#みすたぁのへや:*.jp' || target == '#gochabotdebug' || target == '#testoekaki') // FIXME: poor hack
+    //        cl(prefix, target, RegExp.$1, 'ja');
+    //    else
+    //        cl(prefix, target, RegExp.$1, 'en');
+    //}
 }
 
 function event::onChannelText(prefix, channel, text)
