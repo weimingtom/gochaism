@@ -1,0 +1,232 @@
+@charset 'UTF-8';
+
+* {
+	margin: 0;
+	padding: 0;
+}
+
+html {
+	background-color: #ffffff;
+	color: #333333;
+	font-size: 90%;
+	line-height: 130%;
+	font-family: Tahoma, sans-serif;
+	background: #eeeeee url('../img/stripe_white.png');
+}
+.page {
+	margin-left: 10%;
+	margin-right: 10%;
+	padding-top: 0.5em;
+	padding-bottom: 0.5em;
+	border-left: 1px solid #dddddd;
+	border-right: 1px solid #bbbbbb;
+	background: #ffffff;
+}
+.section {
+	margin: 0.5em 1em;
+}
+.page > .section:first-child {
+	margin-left: 2em;
+	margin-right: 2em;
+	margin-top: 0;
+}
+.page > .section > .content {
+	margin-top: 1em;
+}
+.page > .section > .content > .section {
+	margin: 1em 0;
+	border: 1px solid #aaaaaa;
+}
+.page > .section > .content > .section > .content > .section {
+	margin-top: 1em;
+	margin-bottom: 1em;
+}
+.page > .section > .content > .section > .content > .section + .section {
+	margin-top: 1.5em;
+}
+.page > .section > .content > .section > .content > .section > .content > .section .content {
+	margin-left: 1em;
+}
+h1 {
+	padding-top: 0.2em;
+	padding-bottom: 0.2em;
+	border-bottom: 1px dashed #bbbbbb;
+	color: #444444;
+	font-weight: normal;
+	font-size: 150%;
+	font-family: Tahoma, serif;
+}
+h1.site-name {
+	font-weight: normal;
+	font-size: 200%;
+	color: #5588DD;
+}
+h1.site-name:first-letter {
+	color: #ee6600;
+}
+h2 {
+	padding-left: 0.2em;
+	padding-right: 0.2em;
+	background: #5588dd;
+	color: #ffffff;
+	font-size: 100%;
+}
+h3 {
+	padding-left: 0.2em;
+	border-left: 0.3em solid #228800;
+	font-size: 100%;
+}
+h4, h5, h6 {
+	font-weight: bold;
+	font-size: 100%;
+}
+
+p {
+	margin: 0.5em 0.5em 0.5em 1em;
+}
+p:lang(ja) {
+	text-indent: 1em;
+}
+blockquote {
+	margin: 0.5em 1em;
+	border: 1px solid #cccccc;
+	background: #e2edee;
+}
+pre.blockcode {
+	margin: 0.5em 1em;
+	padding: 0.5em;
+	border: 1px solid #cccccc;
+	font-size: 90%;
+	font-family: 'Courier New', monospace;
+}
+pre {
+	margin: 0.5em 1em;
+	padding: 0.5em;
+	border: 1px solid #cccccc;
+	font-size: 90%;
+	font-family: 'ＭＳ ゴシック', monospace;
+}
+address {
+	font-style: normal;
+	text-align: center;
+}
+
+a img {
+	border: 0;
+}
+em {
+	color: #cc4400;
+	font: inherit;
+}
+strong {
+	color: #aa0000;
+}
+abbr {
+	border: 0;
+	border-bottom: 1px solid #999999;
+}
+q:lang(ja) {
+	quotes: '「' '」';
+}
+dfn {
+	border-bottom: 1px solid #999999;
+	font: inherit;
+}
+code {
+	font-family: 'Courier New', monospace;
+}
+kbd, samp {
+	padding: 0.1em;
+	background: #ffffff;
+	color: #333333;
+	border: 1px solid #cccccc;
+	font: inherit;
+}
+var {
+	color: #000088;
+	font: inherit;
+	font-family: 'Courier New', monospace;
+}
+cite {
+	font: inherit;
+}
+
+ol, ul {
+	margin: 0.5em 1em 0.5em 2em;
+}
+li ol, li ul {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+dl {
+	margin: 0.5em 1em;
+}
+dt {
+	font-weight: bold;
+}
+
+table {
+	margin: 1em 1em;
+	border-collapse: collapse;
+	font-size: 90%;
+}
+th, td {
+	padding: 0.1em 0.5em;
+}
+th {
+	border: 1px solid #999999;
+	background: #ee7700;
+	color: #ffffff;
+	font-size: 100%;
+}
+td {
+	border: 1px solid #aaaaaa;
+	background: #ffffff;
+}
+tr:hover > td {
+	background: #ffe4cc;
+}
+
+.ex-ref {
+	margin-right: 2px;
+	padding-right: 12px;
+	background: url('../img/extern_gray.png') no-repeat right bottom;
+}
+
+#xrea-ad {
+	background: #bbbbbb;
+	text-align: center;
+}
+#xrea-ad iframe {
+	border: 1px solid #999999;
+}
+ul.ad-links li {
+	display: inline;
+}
+
+ol#topic-path {
+	margin-left: 0;
+	margin-right: 0;
+	margin-bottom: 1em;
+	padding: 0.2em;
+	background: #eeeeee;
+	border: 1px solid #bbbbbb;
+	font-size: 90%;
+}
+ol#topic-path li {
+	display: inline;
+}
+ol#topic-path li:before {
+	content: ' > ';
+}
+ol#topic-path li:first-child:before {
+	content: '';
+}
+p#access-counter {
+	margin-top: 1em;
+	margin-right: 1em;
+	color: #666666;
+	font-size: 90%;
+	text-align: right;
+	text-indent: 0;
+}

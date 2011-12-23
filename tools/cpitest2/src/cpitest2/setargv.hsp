@@ -1,0 +1,133 @@
+;-----------------------------------------------------------
+; setargv.hsp -- written by gocha
+;-----------------------------------------------------------
+
+#ifndef SETARGV_INCLUDED
+#define SETARGV_INCLUDED
+
+#module
+
+#uselib "kernel32.dll"
+#cfunc GetCommandLine "GetCommandLineA"
+#cfunc lstrlen "lstrlenA" sptr
+#cfunc IsDBCSLeadByte "IsDBCSLeadByte" int
+
+#define true    1
+#define false   0
+
+#deffunc _setargv
+	pcmdline = GetCommandLine()
+	len_cmdline = lstrlen(pcmdline)
+	dupptr cmdline, pcmdline, len_cmdline + 1, vartype("str")
+
+#ifdef _DEBUG
+	argc_to_skip = 2
+#else
+	argc_to_skip = 1
+#endif
+
+	argc@ = 0
+	argv@ = ""
+	arg_len = 0
+	arg_len_max = 0
+	quoted = false
+	argc_to_skip_cnt = argc_to_skip
+	i = 0
+	repeat
+		c = peek(cmdline, i)
+		if ((c != ' ') & (c != 9)): break
+		i++
+	loop
+	repeat len_cmdline + 1
+		c = peek(cmdline, i)
+		if (IsDBCSLeadByte(c)) {
+			arg_len += 2: i += 2
+			continue
+		}
+		else: if (c == '\"') {
+			quoted = quoted ^ 1
+			i++
+		}
+		else: if (((quoted == false) & ((c == ' ') | (c == 9))) | (c == 0)) {
+			i++
+			if (argc_to_skip_cnt) {
+				argc_to_skip_cnt--
+			}
+			else: if (arg_len > 0) {
+				argc@++
+			}
+			if (arg_len_max < arg_len) {
+				arg_len_max = arg_len
+			}
+			arg_len = 0
+
+			if (c == 0): break
+			repeat
+				c = peek(cmdline, i)
+				if ((c != ' ') & (c != 9)): break
+				i++
+			loop
+			if (c == 0): break
+		}
+		else {
+			arg_len++
+			i++
+		}
+	loop
+
+	if (argc@ == 0): return
+	sdim argv@, arg_len_max + 1, argc@
+	sdim arg, arg_len_max + 1
+
+	argi = 0
+	quoted = false
+	argc_to_skip_cnt = argc_to_skip
+	i = 0
+	repeat
+		c = peek(cmdline, i)
+		if ((c != ' ') & (c != 9)): break
+		i++
+	loop
+	j = 0
+	repeat len_cmdline + 1
+		c = peek(cmdline, i)
+		if (IsDBCSLeadByte(c)) {
+			memcpy arg, cmdline, 2, j, i:
+			i += 2: j += 2
+			continue
+		}
+		else: if (c == '\"') {
+			quoted = quoted ^ 1
+			i++
+		}
+		else: if (((quoted == false) & ((c == ' ') | (c == 9))) | (c == 0)) {
+			i++
+			poke arg, j, 0
+			if (argc_to_skip_cnt) {
+				argc_to_skip_cnt--
+			}
+			else: if (j > 0) {
+				argv@.argi = arg
+				argi++
+			}
+			j = 0
+
+			if (c == 0): break
+			repeat
+				c = peek(cmdline, i)
+				if ((c != ' ') & (c != 9)): break
+				i++
+			loop
+			if (c == 0): break
+		}
+		else {
+			memcpy arg, cmdline, 1, j, i: i++: j++
+		}
+	loop
+return
+
+#global
+
+_setargv
+
+#endif ; !defined(SETARGV_INCLUDED)

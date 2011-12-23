@@ -1,0 +1,369 @@
+;-----------------------------------------------------------
+; cpitest2.hsp -- written by gocha
+;-----------------------------------------------------------
+
+sdim dir_src, 260
+sdim dir_init, 260
+#ifdef _DEBUG
+	chdir "..\\.."
+	dir_src = dir_cur
+#else
+	dir_src = dir_exe
+#endif
+dir_init = dir_cur
+chdir dir_src
+
+sdim ts, 0x1000
+sdim dir, 0x4000
+
+sdim log_buf, 0x10000
+sdim log_line, 0x1000
+
+;-----------------------------------------------------------
+
+#include "setargv.hsp"
+#include "cncplug.hsp"
+#include "listview.as"
+#include "progbar.as"
+
+#packopt name       "cpitest2"
+#packopt runtime    "hsp3c.hrt"
+#packopt hide       1
+#packopt orgpath    1
+
+#pack    "start.ax"
+#pack    "kdl3-konololi.jpg"
+
+#define APP_NAME    "cpitest2"
+#define APP_VER     "(2007-07-21)"
+
+;-----------------------------------------------------------
+
+#define true    1
+#define false   0
+
+#uselib "kernel32.dll"
+#func GetFullPathName "GetFullPathNameA" str, int, var, sptr
+
+#uselib "shell32.dll"
+#func DragAcceptFiles "DragAcceptFiles" int,int
+#func DragQueryFile   "DragQueryFileA"  int,int,int,int
+#func DragQueryPoint  "DragQueryPoint"  int,int
+#func DragFinish      "DragFinish"      int
+
+#uselib "shlwapi.dll"
+#func PathAddBackslash "PathAddBackslashA" var
+#func PathRemoveBackslash "PathRemoveBackslashA" var
+
+#define WM_DROPFILES      0x0233
+
+;-----------------------------------------------------------
+
+	cpi_init
+
+	if (argc == 0) {
+		goto *pluginfo_start
+	}
+	else {
+		goto *extract_start
+	}
+
+;-----------------------------------------------------------
+
+*end_t
+	gosub *log_save
+	end
+
+;-----------------------------------------------------------
+
+*pluginfo_start
+	gosub *pluginfo_wnd
+	stop
+
+;-----------------------------------------------------------
+
+*pluginfo_wnd
+	screen 0, 512, 448: title APP_NAME + " " + APP_VER
+	syscolor 15: boxf: syscolor 7: sysfont 17
+
+	listview_margin = 24
+	listview_width = ginfo_winx - (listview_margin * 2)
+	listview_height = ginfo_winy - (listview_margin * 3)
+	pos listview_margin, listview_margin
+	listview listview_width, listview_height, 1
+	pos listview_margin, (listview_margin * 3 / 2) + listview_height
+	mes "Give me files via command line... ファイル処理はプログラムアイコンにファイルをドロップしてね。"
+
+	listaddc "Path"     , 0, (listview_width * 23) / 100
+	listaddc "Name"     , 1, (listview_width * 37) / 100
+	listaddc "Ver."     , 2, (listview_width * 12) / 100
+	listaddc "Extention", 3, (listview_width * 22) / 100
+
+	sdim cpi_path, 260
+	sdim cpi_ext, 1024
+	sdim cpi_name, 1024
+	sdim cpi_ver, 1024
+
+	cpi_num = cpi_enum()
+	repeat cpi_num
+		cpi_info cnt, cpi_path, cpi_ext, cpi_name, cpi_ver
+		listadd cpi_path,   -1, 0
+		listadd cpi_name, stat, 1
+		listadd cpi_ver , stat, 2
+		listadd cpi_ext , stat, 3
+	loop
+
+	onexit gosub *OnClose
+	onkey gosub *OnKeyPress
+	onerror gosub *OnHspError
+	oncmd gosub *OnNotify, WM_NOTIFY
+return
+
+;-----------------------------------------------------------
+
+*extract_start
+	gosub *extract_wnd
+	sdim in_pathlist, 0x8000
+	sdim in_path, 260
+	sdim in_fname, 260
+	sdim out_dir, 260
+	sdim out_fname, 260
+	sdim out_ext, 260
+	repeat argc
+		chdir dir_init
+		GetFullPathName argv.cnt, 260, in_pathlist, 0
+		gosub *extract
+	loop
+	goto *end_t
+
+;-----------------------------------------------------------
+
+*extract_wnd
+	screen 0, 256, 112: title APP_NAME + " " + APP_VER
+	syscolor 15: boxf: syscolor 7: sysfont 17
+
+	pos 24, 16 : objsize ginfo_winx - 48, 21
+	progbar 0, 0, 100: OID_PROGRESS = stat
+
+	sdim prog_msg, 1024 : prog_msg = "Ready..."
+	pos 24, 48: mesbox prog_msg, , 45, 0: OID_PROGMSG = stat
+
+	onexit gosub *OnClose
+	onkey gosub *OnKeyPress
+	onerror gosub *OnHspError
+return
+
+;-----------------------------------------------------------
+
+*extract
+	notesel in_pathlist
+	noteget in_path, 0
+	notedel 0
+	noteunsel
+
+	gosub *extract_isdir
+	if stat : goto *extract
+
+	in_fname = getpath(in_path, 8)
+	out_dir = in_path + ".files"
+
+	gosub *extract_read
+	if (stat == 0): goto *extract_next
+
+	progrng OID_PROGRESS, 0, 256
+	objprm OID_PROGMSG, in_fname + ": Searching..."
+
+	out_num = 0
+	in_searched = 0
+	in_search_max = 0x80000
+	repeat: if (in_searched == in_size): break
+		if (in_size > 65535) {
+			progprm OID_PROGRESS, in_searched / (in_size / 256)
+		}
+		else {
+			progprm OID_PROGRESS, (in_searched * 256) / in_size
+		}
+		await
+
+		in_search_left = in_size - in_searched
+		if (in_search_left >= in_search_max) {
+			in_search_size = in_search_max
+		}
+		else {
+			in_search_size = in_search_left
+		}
+		match_result = cpi_match(in_search_size, out_ext, out_size, in_buf, in_searched, in_search_left)
+		if (match_result) {
+			if (in_size == out_size) {
+				log_line = in_fname + ": This is " + out_ext + " format": gosub *log_add
+				await
+			}
+			else {
+				log_line = in_fname + ": Found #" + (out_num + 1) + " (" + out_ext + ")... [" + in_searched + "/" + in_size + "]": gosub *log_add
+				await
+
+				out_block_size = 0x1000000
+				out_block_num = (out_size / out_block_size) + 1
+				out_last_size = (out_size \ out_block_size)
+				if (out_last_size == 0): out_last_size = out_block_size
+				out_written_size = 0
+				progrng OID_PROGRESS, 0, out_block_num
+
+				gosub *extract_choutdir
+				out_fname = in_fname + "." + strf("%04d", out_num + 1) + out_ext
+				sdim out_buf, out_block_size : bsave out_fname, out_buf, 0
+
+				repeat out_block_num - 1
+					progprm OID_PROGRESS, cnt
+					await
+
+					memcpy out_buf, in_buf, out_block_size, 0, in_searched + out_written_size
+					bsave out_fname, out_buf, out_block_size, out_written_size
+					out_written_size += out_block_size
+				loop
+				progprm OID_PROGRESS, out_block_num
+				await
+				memcpy out_buf, in_buf, out_last_size, 0, in_searched + out_written_size
+				bsave out_fname, out_buf, out_last_size, out_written_size
+				out_written_size += out_last_size
+				sdim out_buf, 64
+				out_num++
+
+				progrng OID_PROGRESS, 0, 256
+				if (in_size > 65535) {
+					progprm OID_PROGRESS, in_searched / (in_size / 256)
+				}
+				else {
+					progprm OID_PROGRESS, (in_searched * 256) / in_size
+				}
+				objprm OID_PROGMSG, in_fname + ": Ripped #" + (out_num + 1) + " (" + out_ext + ") [" + in_searched + "/" + in_size + " " + out_size + " bytes]"
+				await
+			}
+
+			in_searched += out_size
+		}
+	loop
+	progprm OID_PROGRESS, 256
+
+*extract_next
+	if (in_pathlist != ""): goto *extract
+return
+
+;-----------------------------------------------------------
+
+*extract_isdir
+	if (in_path == ""): return 0
+
+	dirlist dir, in_path, 5
+	if (stat == 0): return 0
+
+	chdir in_path
+	dirlist dir, "*", 2
+	notesel dir
+	dir_files = notemax
+	noteunsel
+	repeat dir_files
+		notesel dir
+		noteget ts, cnt
+		noteunsel
+
+		GetFullPathName ts, 260, in_path, 0
+
+		notesel in_pathlist
+		noteadd in_path
+		noteunsel
+	loop
+return 1
+
+;-----------------------------------------------------------
+
+*extract_read
+	exist in_path: in_size = strsize
+	if ((in_size == -1) | (in_size == 0)) : return 0
+
+	in_block_size = 0x1000000
+	in_block_num = (in_size / in_block_size) + 1
+	in_last_size = (in_size \ in_block_size)
+	if (in_last_size == 0): in_last_size = in_block_size
+	in_read_size = 0
+	sdim in_block_buf, in_block_size
+	sdim in_buf, in_last_size
+	progrng OID_PROGRESS, 0, in_block_num
+	objprm OID_PROGMSG, in_fname + ": Reading..."
+	repeat in_block_num - 1
+		progprm OID_PROGRESS, cnt
+		await
+
+		memexpand in_buf, in_read_size + in_block_size
+		bload in_path, in_block_buf, in_block_size, in_read_size
+		memcpy in_buf, in_block_buf, in_block_size, in_read_size
+		in_read_size += in_block_size
+	loop
+	progprm OID_PROGRESS, in_block_num
+	await
+	memexpand in_buf, in_read_size + in_last_size
+	bload in_path, in_block_buf, in_last_size, in_read_size
+	memcpy in_buf, in_block_buf, in_last_size, in_read_size
+	in_read_size += in_last_size
+	sdim in_block_buf, 64
+return 1
+
+;-----------------------------------------------------------
+
+*extract_choutdir
+	dirlist dir, out_dir, 5
+	if (stat == 0): mkdir out_dir
+	chdir out_dir
+return
+
+;-----------------------------------------------------------
+
+*log_add
+	objprm OID_PROGMSG, log_line
+	log_buf += log_line + "\n"
+	gosub *log_save
+return
+
+*log_save
+	bsave dir_src + "\\cpitest2.log", log_buf, strlen(log_buf)
+return
+
+;-----------------------------------------------------------
+
+*OnClose
+	if (argc > 0) {
+		dialog "exit anyway?", 2, "confirm"
+		if (stat == 7): return
+	}
+
+	goto *end_t
+
+;-----------------------------------------------------------
+
+*OnHspError
+	dialog "HSP error #" + wparam + " at line " + lparam, 0, "HSP error"
+	goto *end_t
+
+;-----------------------------------------------------------
+
+*OnKeyPress
+	if (iparam == 27): gosub *OnClose
+return
+
+;-----------------------------------------------------------
+
+*OnDropFiles
+	hDrop = wparam
+
+	DragQueryFile hDrop, -1, 0, 0: drop_num = stat
+	sdim drop_path, 260
+	repeat drop_num
+		DragQueryFile hDrop, cnt, varptr(drop_path), 260
+	loop
+return
+
+;-----------------------------------------------------------
+
+*OnNotify
+	dupptr NMHDR, lparam, 12
+return

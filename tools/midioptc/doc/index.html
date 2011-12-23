@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
+  <head>
+    <title>midioptc</title>
+    <link rel="stylesheet" title="Innocent Style" media="screen,tv" href="css/innocent.css" />
+  </head>
+  <body id="gocha-s151-xrea-com">
+    <h1>midioptc</h1>
+    <div class="content">
+      <div id="main">
+        <div class="section">
+          <h2>概要</h2>
+          <div class="content">
+            <p>標準MIDIファイル（SMF）から不要なメタイベントを削除します。Cherryの出力に必要ないデータがたくさんくっついてくるので書きました。おそらく需要もなければ、アップデートする気もないソフトウェアです。</p>
+          </div>
+        </div>
+        <div class="section">
+          <h2>使用方法</h2>
+          <div class="content">
+            <p>悟れ、と言いたいところですが、過去のドキュメントの内容を置いておきます。</p>
+            <p>プログラムを起動させ、入力ボックスに変換対象ファイルのパスを入力してください。「参照」ボタンでダイアログから選択したり、ウィンドウに対象ファイルをドロップしたりしても、この入力ボックスにファイルパスを反映できます。また、ワイルドカード（例：*.mid）を指定することで複数ファイルの処理が一度で実行可能です。</p>
+            <p>ファイルパスを入力したら「変換」ボタンを押せば変換処理が開始されます。変換の詳細設定は、「設定」ボタンを押して表示されるダイアログでおこなってください。設定ダイアログから行える設定項目の詳細は以下のとおりです。</p>
+            <dl>
+              <dt>変換終了時にダイアログを表示</dt>
+              <dd>すべての変換が終了した際に変換終了を示すダイアログを表示します。このチェックがされていない場合には代わりにビープ音を再生します。</dd>
+              <dt>変換時にバックアップ(*.bak)を作成する</dt>
+              <dd>変換開始の際にバックアップファイルを作成します。変換の挙動にちょっとでも不安を感じたらチェックすることオススメ。</dd>
+              <dt>マーカーのメタイベントを削除する</dt>
+              <dd>Cherryでは拍子、調号、マーカーのメタイベント操作を一括で行います。ゆえにマーカー書き込みの必要がなくても書き込まれます。その除去に。</dd>
+              <dt>調号のメタイベントを削除する</dt>
+              <dd>Cherryでは拍子／調号／マーカーのメタイベント操作を一括で行います。ゆえに調号書き込みの必要がなくても書き込まれます。その除去に。</dd>
+              <dt>テキストと歌詞のメタイベントを削除</dt>
+              <dd>テキストと歌詞のイベントをすべて削除します。別に Cherry でも削除できますが、なんとなく実装。</dd>
+              <dt>曲名とトラック名と著作権のテキストを削除</dt>
+              <dd>これらテキスト系のイベントを一気に抹消します。</dd>
+              <dt>トラック名のテキストを削除</dt>
+              <dd>トラック名のテキストを削除します。</dd>
+              <dt>フォーマット 1 のデータをフォーマット 0 に変換する（<em>未実装</em>）</dt>
+              <dd>Cherryで生成できるデータはフォーマット1のみです。フォーマット0が作成できなくて困っている方はどうぞ。</dd>
+          </div>
+        </div>
+        <div class="section">
+          <h2>おやくそく</h2>
+          <div class="content">
+            <ul>
+              <li>自己責任の下でご利用ください。</li>
+              <li>転載・再配布はお好きにどうぞ。</li>
+          </div>
+        </div>
+        <div class="section">
+          <h2>更新履歴</h2>
+          <div class="content">
+            <ul>
+              <li>[2003/12/26 v1.0.2] ランニングステータスの処理ミス修正</li>
+              <li>[2003/10/26 v1.0.1] シーケンス名と著作権情報の削除の機能を追加</li>
+              <li>[2003/10/18 v1.0.0] 一通りバグを除去したので正式版とする</li>
+              <li>[2003/10/17 v0.1β] コア部分の再作成</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="section" id="navigation">
+        <h2>ナビゲーション</h2>
+        <div class="content">
+          <div class="section">
+            <h3>連絡先</h3>
+            <div class="content">
+              <ul>
+                <li><a class="ex-ref" href="http://gocha.s151.xrea.com/">gochaism</a></li>
+                <li><a class="ex-ref" href="http://d.hatena.ne.jp/GOCHA/">悟茶辞苑</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="section">
+            <h3>リンク</h3>
+            <div class="content">
+              <ul>
+                <li><a class="ex-ref" href="http://www.onionsoft.net/hsp/">HSP オフィシャルホームページ</a></li>
+                <li><a class="ex-ref" href="http://hp.vector.co.jp/authors/VA010012/">ふみぃのソフトウェア工房</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <address>Presented by gocha</address>
+    </div>
+  </body>
+</html>

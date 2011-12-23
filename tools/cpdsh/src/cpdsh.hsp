@@ -1,0 +1,1938 @@
+/*
+ * キャラクター量産機
+ * http://d.hatena.ne.jp/GOCHA/
+ *
+ * キャラクターなんとか機用ユーティリティ。見た目とは対照的に硬派なアプリ。
+ * スクリプトで設定読み込みやパーツ変更の動作を自動化、表情差分などの出力を
+ * 簡単お手軽（？）にやってしまおうというもの。転んでも泣かない人におすすめ。
+ */
+
+#ifdef _DEBUG
+dir_dpm = dir_cur + "\\res\\"
+#else /* not _DEBUG */
+dir_dpm = ""
+#endif /* not _DEBUG */
+
+#ifdef _DEBUG
+chdir "D:\\everyone\\app\\character"
+#endif
+
+#define true    1
+#define false   0
+
+/*------------------------------------------------------------------------*/
+
+#include "setargv.as"
+#include "ezcsv.as"
+#include "ezscript.as"
+
+#include "onlyone.as"
+#include "imgctl3.as"
+#include "charaex.as"
+
+#include "kernel32.as"
+#include "shell32.as"
+#include "user32.as"
+
+/*------------------------------------------------------------------------*/
+
+#define  APP_NAME   "キャラクター量産機"
+#define  APP_VER    5
+#define  APP_VERSTR "0.7a"
+#define  APP_TITLE  APP_NAME + " Ver." + APP_VERSTR
+
+#packopt name       "cpdsh"
+#packopt runtime    "cpdsh.hrt" ; hsp3c.hrt
+#packopt hide       1
+#packopt orgpath    1
+
+#pack    "start.ax"
+#pack    "res\\cpdsh.bmp"
+
+/*------------------------------------------------------------------------*/
+
+#const WS_OVERLAPPED          0x00000000
+#const WS_POPUP               0x80000000
+#const WS_CHILD               0x40000000
+#const WS_MINIMIZE            0x20000000
+#const WS_VISIBLE             0x10000000
+#const WS_DISABLED            0x08000000
+#const WS_CLIPSIBLINGS        0x04000000
+#const WS_CLIPCHILDREN        0x02000000
+#const WS_MAXIMIZE            0x01000000
+#const WS_CAPTION             0x00c00000
+#const WS_BORDER              0x00800000
+#const WS_DLGFRAME            0x00400000
+#const WS_VSCROLL             0x00200000
+#const WS_HSCROLL             0x00100000
+#const WS_SYSMENU             0x00080000
+#const WS_THICKFRAME          0x00040000
+#const WS_GROUP               0x00020000
+#const WS_TABSTOP             0x00010000
+#const WS_MINIMIZEBOX         0x00020000
+#const WS_MAXIMIZEBOX         0x00010000
+#const WS_TILED               WS_OVERLAPPED
+#const WS_ICONIC              WS_MINIMIZE
+#const WS_SIZEBOX             WS_THICKFRAME
+#const WS_OVERLAPPEDWINDOW    (WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX)
+#const WS_POPUPWINDOW         (WS_POPUP|WS_BORDER|WS_SYSMENU)
+#const WS_CHILDWINDOW         (WS_CHILD)
+#const WS_TILEDWINDOW         (WS_OVERLAPPEDWINDOW)
+#const WS_EX_DLGMODALFRAME    0x00000001
+#const WS_EX_DRAGDETECT       0x00000002
+#const WS_EX_NOPARENTNOTIFY   0x00000004
+#const WS_EX_TOPMOST          0x00000008
+#const WS_EX_ACCEPTFILES      0x00000010
+#const WS_EX_TRANSPARENT      0x00000020
+#const WS_EX_MDICHILD         0x00000040
+#const WS_EX_TOOLWINDOW       0x00000080
+#const WS_EX_WINDOWEDGE       0x00000100
+#const WS_EX_CLIENTEDGE       0x00000200
+#const WS_EX_CONTEXTHELP      0x00000400
+#const WS_EX_RIGHT            0x00001000
+#const WS_EX_LEFT             0x00000000
+#const WS_EX_RTLREADING       0x00002000
+#const WS_EX_LTRREADING       0x00000000
+#const WS_EX_LEFTSCROLLBAR    0x00004000
+#const WS_EX_RIGHTSCROLLBAR   0x00000000
+#const WS_EX_CONTROLPARENT    0x00010000
+#const WS_EX_STATICEDGE       0x00020000
+#const WS_EX_APPWINDOW        0x00040000
+#const WS_EX_LAYOUTRTL        0x00400000
+#const WS_EX_NOINHERITLAYOUT  0x00100000
+#const WS_EX_OVERLAPPEDWINDOW (WS_EX_WINDOWEDGE|WS_EX_CLIENTEDGE)
+#const WS_EX_PALETTEWINDOW    (WS_EX_WINDOWEDGE|WS_EX_TOOLWINDOW|WS_EX_TOPMOST)
+#const WS_EX_LAYERED          0x00080000L
+#const WS_EX_TRAYWINDOW       0x80000000L
+
+#module cpdsh_util
+
+#const  GWL_WNDPROC     -4
+#const  GWL_HINSTANCE   -6
+#const  GWL_HWNDPARENT  -8
+#const  GWL_STYLE       -16
+#const  GWL_EXSTYLE     -20
+#const  GWL_USERDATA    -21
+#const  GWL_ID          -12
+
+;#uselib "user32.dll"
+;#cfunc GetWindowLong "GetWindowLong" sptr, int
+;#func  SetWindowLong "SetWindowLong" sptr, int, int
+
+#defcfunc hwndof int wid
+  mref bmscr, 96 + wid
+  hwnd_of_wid = bmscr.13
+return hwnd_of_wid
+
+#deffunc addwndstyle int wid, int mask
+  mref bmscr, 96 + wid
+  hwnd_of_wid = bmscr.13
+  GetWindowLong hwnd_of_wid, GWL_STYLE : style = stat
+  SetWindowLong hwnd_of_wid, GWL_STYLE, style | mask;
+return
+
+#deffunc delwndstyle int wid, int mask
+  mref bmscr, 96 + wid
+  hwnd_of_wid = bmscr.13
+  GetWindowLong hwnd_of_wid, GWL_STYLE : style = stat
+  SetWindowLong hwnd_of_wid, GWL_STYLE, style & (0xffffffff ^ mask);
+return
+
+#global
+
+/*------------------------------------------------------------------------*/
+
+stmp_size = 8192
+sdim stmp, stmp_size
+sdim app_msg, 8192
+sdim scr_log, 8192
+sdim scr_msg, 8192
+
+dim bmih, 16
+
+/*------------------------------------------------------------------------*/
+
+#module
+
+#defcfunc boolint str s
+  i = int(s)
+  s_ = getpath(s, 16)
+  if ((s_ == "true") | (s_ == "enable") | (s_ == "on")) {
+    i = 1
+  }
+  else: if ((s_ == "false") | (s_ == "disable") | (s_ == "off")) {
+    i = 0
+  }
+return i
+
+#global
+
+/*------------------------------------------------------------------------*/
+
+dir_base = dir_cur
+#ifdef _DEBUG
+dir_src = dir_cur
+#else /* not _DEBUG */
+dir_src = dir_exe
+#endif /* not _DEBUG */
+
+dir_chr_root = dir_src
+dir_chr_parts = dir_src + "\\data"
+chr_conf_path = dir_src + "\\config.ini"
+cpdsh_conf_path = dir_src + "\\cpdsh.ini"
+
+chdir dir_chr_root
+exist "character.exe"
+if (strsize == -1) {
+  dialog "キャラクターなんとか機 (character.exe) のあるフォルダにインストールしてください。", 0, APP_NAME
+  end
+}
+chdir dir_base
+
+/*------------------------------------------------------------------------*/
+
+; アプリケーション設定を読み込み
+gosub *cpdsh_conf_load
+
+; config.iniの一部設定を読み込み
+GetPrivateProfileString "System", "accessory_max", str(6), varptr(stmp), stmp_size, chr_conf_path
+cpd_accessory_max = int(stmp)
+GetPrivateProfileString "Option", "jpeg_quality", str(80), varptr(stmp), stmp_size, chr_conf_path
+jpeg_quality = int(stmp)
+if (cpd_accessory_max < 0) : cpd_accessory_max = 6
+sdim cpd_parts_accessory, 64, cpd_accessory_max
+
+gosub *cpd_fix_default
+gosub *cpd_set_default
+
+sdim cpd_render_priority, 64, 16 : i = 0
+cpd_render_priority(i) = "accessory_back" : i++
+cpd_render_priority(i) = "hair_back" : i++
+cpd_render_priority(i) = "hair_back_accessory" : i++
+cpd_render_priority(i) = "body_back" : i++
+cpd_render_priority(i) = "accessory_underwear" : i++
+cpd_render_priority(i) = "body_front" : i++
+cpd_render_priority(i) = "body_front_color" : i++
+cpd_render_priority(i) = "accessory_middle_back" : i++
+cpd_render_priority(i) = "head" : i++
+cpd_render_priority(i) = "accessory_middle_front" : i++
+cpd_render_priority(i) = "face_back" : i++
+cpd_render_priority(i) = "hair_front" : i++
+cpd_render_priority(i) = "hair_accessory" : i++
+cpd_render_priority(i) = "face_front" : i++
+cpd_render_priority(i) = "eye" : i++
+cpd_render_priority(i) = "accessory_front" : i++
+
+; 色変更用の内部定数
+hair_rgb_rTo  =  255, 128, 128, 128, 255, 255,   0, 128, 128, 128, 128
+hair_rgb_gTo  =  255, 255, 255, 128, 128, 128,   0, 128, 255, 255, 255
+hair_rgb_bTo  =  128, 128, 255, 255, 255, 128,   0, 128, 255, 255, 255
+hair_rgb_rGma = 1000,1000,1000,1000,1000,1000,1000,1000, 700,2000,3000
+hair_rgb_gGma = 1000,1000,1000,1000,1000,1000,1000,1000,1000,1500,1200
+hair_rgb_bGma = 1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1200
+hair_gray_lv  = 0, 32, 64, 128, 192, 224, 255
+;
+eye_rgb_rTo   =  255, 128, 128, 128, 255, 255,   0, 128
+eye_rgb_gTo   =  255, 255, 255, 128, 128, 128,   0, 128
+eye_rgb_bTo   =  128, 128, 255, 255, 255, 128,   0, 128
+eye_gray_lv   = 0, 32, 64, 128, 192, 224, 255
+;
+skin_rgb_rMul = 1000, 900,1050,1200,1200
+skin_rgb_gMul = 1000, 700,1050, 950,1050
+skin_rgb_bMul = 1000, 700,1000, 950,1200
+skin_gray_gma = 1600,1400,1200,1000, 900, 800, 700
+; (同じ値ばかりだと言わざるを得ない)
+body_rgb_rTo  =  255, 128, 128, 128, 255, 255,   0, 128
+body_rgb_gTo  =  255, 255, 255, 128, 128, 128,   0, 128
+body_rgb_bTo  =  128, 128, 255, 255, 255, 128,   0, 128
+body_gray_lv  = 0, 32, 64, 128, 192, 224, 255
+
+; 項目文字列テーブル
+sdim cpd_color_hair_str, 64, 11
+cpd_color_hair_str = "青", "紫", "赤", "黄色", "緑", "水色", "黒", "白", "茶色", "橙", "桃色"
+sdim cpd_color_eye_str, 64, 8
+cpd_color_eye_str = "青", "紫", "赤", "黄色", "緑", "水色", "黒", "白"
+sdim cpd_color_skin_str, 64, 5
+cpd_color_skin_str = "標準", "褐色", "黄色", "日焼け", "不健康"
+sdim cpd_color_body_str, 64, 8
+cpd_color_body_str = "青", "紫", "赤", "黄色", "緑", "水色", "黒", "白"
+sdim cpd_bri_str, 64, 7
+cpd_bri_str = "+3", "+2", "+1", "標準", "-1", "-2", "-3"
+
+/*------------------------------------------------------------------------*/
+
+#const  WID_MAIN    0
+#const  WID_VIEW    2
+#const  WID_ICON    3
+#const  WID_PARTS   4
+#const  WID_RENDER  5
+#const  WID_PREVIEW 6
+#const  OID_MSG     0
+
+buffer WID_ICON : picload dir_dpm+"cpdsh.bmp"
+icon_sx = ginfo_sx : icon_sy = ginfo_sy
+
+screen WID_MAIN, 480, 240, 2: cls 4
+sx = ginfo_sx : sy = ginfo_sy
+title APP_TITLE
+
+x = ginfo_wx1 : y = ginfo_wy2
+screen WID_VIEW, cpd_size_x, cpd_size_y, 2, x, y
+delwndstyle WID_VIEW, WS_MINIMIZEBOX
+title "表示 - " + APP_NAME
+cpd_size_x_old = cpd_size_x
+cpd_size_y_old = cpd_size_y
+color cpd_color_bg_rgb(0), cpd_color_bg_rgb(1), cpd_color_bg_rgb(2) : boxf
+
+gsel WID_MAIN
+
+#const  WM_ACTIVATE     0x0006
+#const  WA_INACTIVE     0
+#const  WA_ACTIVE       1
+#const  WA_CLICKACTIVE  2
+
+#const  WM_DROPFILES    0x0233
+
+#const  VK_F5           0x74
+
+; ファイルドロップ時の処理ルーチンを設定
+oncmd gosub *OnDropFiles, WM_DROPFILES
+; ファイルのドロップを許可
+DragAcceptFiles hwnd, 1
+
+; アクティブ化時の処理ルーチンを設定
+oncmd gosub *OnActivate, WM_ACTIVATE
+
+onkey gosub *OnKeyDown
+
+; 多重起動処理
+OnlyOne APP_NAME
+OnlyOne_SetProc *OnSecondRun
+
+gsel WID_VIEW, 1
+gsel WID_MAIN, 1
+
+/*------------------------------------------------------------------------*/
+
+; メインウィンドウの装飾
+gosub *draw_bg
+
+app_msg = "Stand by ready...\n"
+font "ＭＳ ゴシック", 12 : objmode 2, 1
+pos 30 + icon_sx, 15 : mesbox app_msg, sx - (45 + icon_sx), sy - 30, 4
+
+/*------------------------------------------------------------------------*/
+
+; ファイルが渡されていれば処理
+if (argc > 0) {
+  v_argc = 0
+  sdim v_argv, 512, argc
+  repeat argc : argi = cnt
+    v_argv(argi) = argv(argi)
+    v_argc++
+  loop
+  gosub *dispatch_files
+  stop
+}
+
+app_msg = {"
+Stand by ready...
+
+おかえりなさいませ、ご主人様。
+
+"} + APP_NAME + {"はスクリプトを処理して、
+キャラクターなんとか機の画像を量産するツールです。
+説明書やサンプルを見ながらスクリプトを書いてください。
+
+スクリプトはコマンドライン引数でファイルを渡すか、
+このウィンドウにファイルをドロップするかの
+いずれかの方法で実行が可能です。
+
+合言葉：転んでも泣かない
+"}
+  gosub *app_put_msg
+  stop
+
+/*------------------------------------------------------------------------*/
+
+; 多重起動時
+*OnSecondRun
+  v_cmdline = refstr
+  setargv v_cmdline, 0
+
+  v_argc = _argc
+  sdim v_argv, _arg_len_max, v_argc
+  repeat v_argc : argi = cnt
+    v_argv(argi) = _argv(argi)
+  loop
+  gosub *dispatch_files
+return
+
+/*------------------------------------------------------------------------*/
+
+; キーが押された
+*OnKeyDown
+  if (wparam == VK_F5) {
+    gosub *dispatch_files
+  }
+return
+
+/*------------------------------------------------------------------------*/
+
+; ウィンドウが（非）アクティブかされた
+*OnActivate
+  oncmd 0
+
+  fActive = (wparam & 0xFFFF)
+  if (/*fActive == WA_ACTIVE || */fActive == WA_CLICKACTIVE) {
+    GetActiveWindow : real_active_window = stat
+    SetActiveWindow hwndof(WID_VIEW)
+    SetActiveWindow real_active_window
+  }
+
+  oncmd 1
+return
+
+/*------------------------------------------------------------------------*/
+
+; ファイルがドロップされた
+*OnDropFiles
+  hDrop = wParam
+  DragQueryFile hDrop, -1, 0, 0: drop_num = stat
+
+  v_argc = 0
+  sdim v_argv, 512, drop_num
+  repeat drop_num : argi = cnt
+    DragQueryFile hDrop, argi, varptr(stmp), stmp_size
+    v_argv(argi) = stmp
+    v_argc++
+  loop
+  DragFinish hDrop
+
+  gosub *dispatch_files
+return
+
+/*------------------------------------------------------------------------*/
+
+; 一連のファイルを処理
+*dispatch_files
+  app_msg = ""
+  gosub *app_put_msg
+
+  repeat v_argc : argi = cnt
+    if (argi != 0) {
+      app_msg += "\n"
+    }
+
+    scr_name = v_argv(argi)
+    dir_scr = getpath(scr_name, 32)
+    if (dir_scr == "") : dir_scr = dir_base
+    chdir dir_scr
+
+    gosub *scr_reset
+
+    stmp = getpath(scr_name, 2)
+    if (stmp == ".cpd") {
+      scr_log = getpath(scr_name, 8) + ":\n"
+      cpd_name = scr_name
+      gosub *cpd_load
+      gosub *cpd_render
+      if (scr_error) {
+        scr_log += "エラー: キャラクターを表示できません\n"
+      }
+      else {
+        scr_log += "キャラクターを表示しました\n"
+      }
+    }
+    else {
+      gosub *scr_run
+    }
+    app_msg += scr_log
+  loop
+
+  gsel WID_MAIN
+  title APP_TITLE
+  gosub *app_put_msg
+return
+
+/*------------------------------------------------------------------------*/
+
+*cpdsh_conf_load
+  GetPrivateProfileString "Script", "debug", "false", varptr(stmp), stmp_size, cpdsh_conf_path
+  scr_debug_default = boolint(stmp)
+  GetPrivateProfileString "Script", "quiet", "false", varptr(stmp), stmp_size, cpdsh_conf_path
+  scr_quiet_default = boolint(stmp)
+return
+
+/*------------------------------------------------------------------------*/
+
+; cpdデフォルト設定
+*cpd_fix_default
+  cpd_character_name_default = "default"
+
+  cpd_parts_hair_front_default = "ナチュラル"
+  cpd_parts_hair_back_default = "セミロング"
+  cpd_parts_head_default = "普通な顔1"
+  cpd_parts_face_default = "笑い(口閉じ)"
+  cpd_parts_eye_default = "普通な目1"
+  cpd_parts_body_default = "セーラー服1"
+  cpd_parts_accessory_default = ""
+  cpd_accessory_num_default = 0
+
+  cpd_color_hair_rgb_default = 2
+  cpd_color_hair_gray_default = 3
+  cpd_color_eye_rgb_default = 2
+  cpd_color_eye_gray_default = 3
+  cpd_color_skin_rgb_default = 0
+  cpd_color_skin_gray_default = 3
+  cpd_color_body_rgb_default = 0
+  cpd_color_body_gray_default = 3
+  cpd_color_bg_rgb_default = 255, 255, 255
+
+  cpd_size_x_default = 300
+  cpd_size_y_default = 400
+
+  ; 本家にない独自設定
+  cpd_opacity_master_default = 256
+  cpd_opacity_body_default = 256
+  cpd_opacity_skin_default = 256
+  cpd_trans_skin_redir_default = true
+  cpd_trans_accessary_as_skin_default = false
+  return
+
+/*------------------------------------------------------------------------*/
+
+; cpdデフォルト設定のコピー
+*cpd_set_default
+  cpd_character_name = cpd_character_name_default
+
+  cpd_parts_hair_front = cpd_parts_hair_front_default
+  cpd_parts_hair_back = cpd_parts_hair_back_default
+  cpd_parts_head = cpd_parts_head_default
+  cpd_parts_face = cpd_parts_face_default
+  cpd_parts_eye = cpd_parts_eye_default
+  cpd_parts_body = cpd_parts_body_default
+  cpd_accessory_num = cpd_accessory_num_default
+  repeat cpd_accessory_num_default: i = cnt
+    cpd_parts_accessory(i) = cpd_parts_accessory_default(i)
+  loop
+
+  cpd_color_hair_rgb = cpd_color_hair_rgb_default
+  cpd_color_hair_gray = cpd_color_hair_gray_default
+  cpd_color_eye_rgb = cpd_color_eye_rgb_default
+  cpd_color_eye_gray = cpd_color_eye_gray_default
+  cpd_color_skin_rgb = cpd_color_skin_rgb_default
+  cpd_color_skin_gray = cpd_color_skin_gray_default
+  cpd_color_body_rgb = cpd_color_body_rgb_default
+  cpd_color_body_gray = cpd_color_body_gray_default
+  cpd_color_bg_rgb = 255, 255, 255
+
+  cpd_size_x = cpd_size_x_default
+  cpd_size_y = cpd_size_y_default
+
+  ; 本家にない独自設定
+  cpd_opacity_master = cpd_opacity_master_default
+  cpd_opacity_body = cpd_opacity_body_default
+  cpd_opacity_skin = cpd_opacity_skin_default
+  cpd_trans_skin_redir = cpd_trans_skin_redir_default
+  cpd_trans_accessary_as_skin = cpd_trans_accessary_as_skin_default
+return
+
+/*------------------------------------------------------------------------*/
+
+; cpd設定読み込み
+*cpd_load
+  cpd_path = getpath(cpd_name, 32)
+  if (cpd_path == "") : cpd_path = dir_cur + "\\"
+  cpd_path += getpath(cpd_name, 8)
+
+  GetPrivateProfileString "Character", "name", cpd_character_name, varptr(stmp), stmp_size, cpd_path
+  cpd_character_name = stmp
+  GetPrivateProfileString "Parts", "hair_front", cpd_parts_hair_front, varptr(stmp), stmp_size, cpd_path
+  cpd_parts_hair_front = stmp
+  GetPrivateProfileString "Parts", "hair_back", cpd_parts_hair_back, varptr(stmp), stmp_size, cpd_path
+  cpd_parts_hair_back = stmp
+  GetPrivateProfileString "Parts", "head", cpd_parts_head, varptr(stmp), stmp_size, cpd_path
+  cpd_parts_head = stmp
+  GetPrivateProfileString "Parts", "face", cpd_parts_face, varptr(stmp), stmp_size, cpd_path
+  cpd_parts_face = stmp
+  GetPrivateProfileString "Parts", "eye", cpd_parts_eye, varptr(stmp), stmp_size, cpd_path
+  cpd_parts_eye = stmp
+  GetPrivateProfileString "Parts", "body", cpd_parts_body, varptr(stmp), stmp_size, cpd_path
+  cpd_parts_body = stmp
+  ; アクセサリデフォルト値を用意
+  stmp = ""
+  repeat cpd_accessory_num_default: i = cnt
+    if (i != 0) : stmp += ","
+    stmp += cpd_parts_accessory_default(i)
+  loop
+  ; アクセサリ設定を読み込み
+  GetPrivateProfileString "Parts", "accessory", stmp, varptr(stmp), stmp_size, cpd_path
+  if (stmp == "") {
+    cpd_accessory_num = 0
+  }
+  else {
+    ; 行末の,をカット
+    i = strlen(stmp) - 1
+    c = peek(stmp, i)
+    if (c == ',') {
+      poke stmp, i, 0
+    }
+    ; 値を格納
+    ezcs_parse_ln stmp
+    if (ezcs_argc > cpd_accessory_max) {
+      scr_msg = "警告: accessory_max が拡張されました (" + cpd_accessory_max + " -> " + ezcs_argc + ")"
+      gosub *scr_put_msg_ln
+
+      cpd_accessory_max = ezcs_argc
+      sdim cpd_parts_accessory, 64, cpd_accessory_max
+    }
+    cpd_accessory_num = ezcs_argc
+    repeat cpd_accessory_num : i = cnt
+      cpd_parts_accessory(i) = ezcs_argv(i)
+    loop
+  }
+
+  GetPrivateProfileString "Color", "hair_rgb", str(cpd_color_hair_rgb), varptr(stmp), stmp_size, cpd_path
+  cpd_color_hair_rgb = int(stmp)
+  GetPrivateProfileString "Color", "hair_gray", str(cpd_color_hair_gray), varptr(stmp), stmp_size, cpd_path
+  cpd_color_hair_gray = int(stmp)
+  GetPrivateProfileString "Color", "eye_rgb", str(cpd_color_eye_rgb), varptr(stmp), stmp_size, cpd_path
+  cpd_color_eye_rgb = int(stmp)
+  GetPrivateProfileString "Color", "eye_gray", str(cpd_color_eye_gray), varptr(stmp), stmp_size, cpd_path
+  cpd_color_eye_gray = int(stmp)
+  GetPrivateProfileString "Color", "skin_rgb", str(cpd_color_skin_rgb), varptr(stmp), stmp_size, cpd_path
+  cpd_color_skin_rgb = int(stmp)
+  GetPrivateProfileString "Color", "skin_gray", str(cpd_color_skin_gray), varptr(stmp), stmp_size, cpd_path
+  cpd_color_skin_gray = int(stmp)
+  GetPrivateProfileString "Color", "body_rgb", str(cpd_color_body_rgb), varptr(stmp), stmp_size, cpd_path
+  cpd_color_body_rgb = int(stmp)
+  GetPrivateProfileString "Color", "body_gray", str(cpd_color_body_gray), varptr(stmp), stmp_size, cpd_path
+  cpd_color_body_gray = int(stmp)
+  stmp = ""+cpd_color_bg_rgb(0)+","+cpd_color_bg_rgb(1)+","+cpd_color_bg_rgb(2)
+  GetPrivateProfileString "Color", "bg_rgb", stmp, varptr(stmp), stmp_size, cpd_path
+  ezcs_parse_ln stmp
+  cpd_color_bg_rgb = int(ezcs_argv(0)), int(ezcs_argv(1)), int(ezcs_argv(2))
+
+  GetPrivateProfileString "Size", "size_x", str(cpd_size_x), varptr(stmp), stmp_size, cpd_path
+  cpd_size_x = int(stmp)
+  GetPrivateProfileString "Size", "size_y", str(cpd_size_y), varptr(stmp), stmp_size, cpd_path
+  cpd_size_y = int(stmp)
+
+  cpd_redraw = 1
+return
+
+/*------------------------------------------------------------------------*/
+
+; cpd設定書き込み
+*cpd_save
+  cpd_path = getpath(cpd_name, 32)
+  if (cpd_path == "") : cpd_path = dir_cur + "\\"
+  cpd_path += getpath(cpd_name, 8)
+
+  stmp = cpd_character_name
+  WritePrivateProfileString "Character", "name", stmp, cpd_path
+
+  stmp = cpd_parts_hair_front
+  WritePrivateProfileString "Parts", "hair_front", stmp, cpd_path
+  stmp = cpd_parts_hair_back
+  WritePrivateProfileString "Parts", "hair_back", stmp, cpd_path
+  stmp = cpd_parts_head
+  WritePrivateProfileString "Parts", "head", stmp, cpd_path
+  stmp = cpd_parts_face
+  WritePrivateProfileString "Parts", "face", stmp, cpd_path
+  stmp = cpd_parts_eye
+  WritePrivateProfileString "Parts", "eye", stmp, cpd_path
+  stmp = cpd_parts_body
+  WritePrivateProfileString "Parts", "body", stmp, cpd_path
+  stmp = ""
+  repeat cpd_accessory_num: i = cnt
+    if (i != 0) : stmp += ","
+    stmp += cpd_parts_accessory(i)
+  loop
+  WritePrivateProfileString "Parts", "accessory", stmp, cpd_path
+
+  stmp = str(cpd_color_hair_rgb)
+  WritePrivateProfileString "Color", "hair_rgb", stmp, cpd_path
+  stmp = str(cpd_color_hair_gray)
+  WritePrivateProfileString "Color", "hair_gray", stmp, cpd_path
+  stmp = str(cpd_color_eye_rgb)
+  WritePrivateProfileString "Color", "eye_rgb", stmp, cpd_path
+  stmp = str(cpd_color_eye_gray)
+  WritePrivateProfileString "Color", "eye_gray", stmp, cpd_path
+  stmp = str(cpd_color_skin_rgb)
+  WritePrivateProfileString "Color", "skin_rgb", stmp, cpd_path
+  stmp = str(cpd_color_skin_gray)
+  WritePrivateProfileString "Color", "skin_gray", stmp, cpd_path
+  stmp = str(cpd_color_body_rgb)
+  WritePrivateProfileString "Color", "body_rgb", stmp, cpd_path
+  stmp = str(cpd_color_body_gray)
+  WritePrivateProfileString "Color", "body_gray", stmp, cpd_path
+  stmp = ""+cpd_color_bg_rgb(0)+","+cpd_color_bg_rgb(1)+","+cpd_color_bg_rgb(2)
+  WritePrivateProfileString "Color", "bg_rgb", stmp, cpd_path
+
+  stmp = str(cpd_size_x)
+  WritePrivateProfileString "Size", "size_x", stmp, cpd_path
+  stmp = str(cpd_size_y)
+  WritePrivateProfileString "Size", "size_y", stmp, cpd_path
+return
+
+/*------------------------------------------------------------------------*/
+
+; 背景を描く
+*draw_bg
+  redraw 2
+
+  ; グリッドを描く
+  bs = 8 : gosub *draw_grid_bg
+
+  ; アイコンを転写
+  gmode 1, icon_sx, icon_sy
+  pos 15, (sy - icon_sy) / 2 : gcopy WID_ICON, 0, 0
+
+  redraw 1
+return
+
+/*------------------------------------------------------------------------*/
+
+; 背景グリッドを描く
+*draw_grid_bg
+  ;color 255, 255, 255: boxf
+  ;color 204, 204, 204
+  color 128, 128, 128: boxf
+  color 160, 160, 160
+  repeat (sy + bs - 1) / bs: y = cnt
+    repeat (sx + bs - 1) / bs: x = cnt
+      t = (x + (y & 1)) & 1
+      if (t) {
+        boxf x*bs, y*bs, ((x+1)*bs)-1, ((y+1)*bs)-1
+      }
+    loop
+  loop
+return
+
+/*------------------------------------------------------------------------*/
+
+; メッセージ表示
+*app_put_msg
+  wid = ginfo_sel
+
+  gsel WID_MAIN
+  objprm OID_MSG, app_msg
+
+  gsel wid
+return
+
+/*------------------------------------------------------------------------*/
+
+; スクリプトログ表示
+*scr_put_log
+  wid = ginfo_sel
+
+  gsel WID_MAIN
+  objprm OID_MSG, scr_log
+
+  gsel wid
+return
+
+/*------------------------------------------------------------------------*/
+
+; ログにメッセージ追加
+*scr_put_msg_ln
+  wid = ginfo_sel
+
+  if (scr_quiet == 0) {
+    scr_log += scr_msg + "\n"
+
+    gsel WID_MAIN
+    title scr_msg + " - " + APP_TITLE
+  }
+
+  gsel wid
+return
+
+/*------------------------------------------------------------------------*/
+
+; スクリプトシステムリセット
+*scr_reset
+  scr_error = 0
+  scr_exit = 0
+  scr_debug = scr_debug_default
+  scr_quiet = scr_quiet_default
+  scr_fn_prefix = ""
+  cpd_redraw = 1
+
+  ; 本家にない独自設定
+  cpd_opacity_master = cpd_opacity_master_default
+  cpd_opacity_body = cpd_opacity_body_default
+  cpd_opacity_skin = cpd_opacity_skin_default
+  cpd_trans_skin_redir = cpd_trans_skin_redir_default
+  cpd_trans_accessary_as_skin = cpd_trans_accessary_as_skin_default
+return
+
+/*------------------------------------------------------------------------*/
+
+; スクリプトを実行
+*scr_run
+  scr_log = getpath(scr_name, 8) + ":\n"
+  ezs_load scr_name
+  if (stat == 0) {
+    scr_msg = "エラー: スクリプトが開けません"
+    gosub *scr_put_msg_ln
+    return
+  }
+  title getpath(scr_name, 8) + " - " + APP_TITLE
+
+  gsel WID_VIEW
+  color cpd_color_bg_rgb(0), cpd_color_bg_rgb(1), cpd_color_bg_rgb(2) : boxf
+  gsel WID_MAIN
+
+  oncmd 0
+  onkey 0
+  DragAcceptFiles hwnd, 0
+  gosub *scr_reset
+  repeat
+    ezs_parse : ezs_eof = stat
+    if (ezs_eof) : break
+
+    if (scr_debug) {
+      scr_msg = "" + ezs_line_no + ": "
+      repeat ezs_argc
+        if (cnt != 0) : scr_msg += " "
+        scr_msg += ezs_argv(cnt)
+      loop
+      scr_log += scr_msg + "\n"
+    }
+
+    gosub *scr_dispatch_cmd
+    if (scr_error) : scr_exit = 1
+    if (scr_exit)  : break
+    gsel WID_MAIN
+
+    gosub *scr_put_log
+    await
+  loop
+  gsel WID_MAIN
+  onkey 1
+  oncmd 1
+  DragAcceptFiles hwnd, 1
+
+  if (scr_error) {
+    scr_msg = "エラー: 実行を中止しました (" + ezs_line_no + "行目)"
+    scr_log += scr_msg + "\n"
+  }
+  else {
+    scr_msg = "実行終了"
+    gosub *scr_put_msg_ln
+  }
+  ;gosub *cpd_render
+
+  ezs_unload
+  title APP_TITLE
+return
+
+/*------------------------------------------------------------------------*/
+
+; コマンドを処理
+*scr_dispatch_cmd
+  scr_cmd = getpath(ezs_argv(0), 16)
+  if (scr_cmd == "exit") {
+    gosub *scr_cmd_exit
+  }
+  else: if (scr_cmd == "goto") {
+    gosub *scr_cmd_goto
+  }
+  else: if (scr_cmd == "call") {
+    gosub *scr_cmd_call
+  }
+  else: if (scr_cmd == "ret") {
+    gosub *scr_cmd_ret
+  }
+  else: if (scr_cmd == "echo") {
+    gosub *scr_cmd_echo
+  }
+  else: if (scr_cmd == "plot") {
+    gosub *scr_cmd_plot
+  }
+  else: if (scr_cmd == "st") {
+    gosub *scr_cmd_st
+  }
+  else: if (scr_cmd == "ldcpd") {
+    gosub *scr_cmd_ldcpd
+  }
+  else: if (scr_cmd == "stcpd") {
+    gosub *scr_cmd_stcpd
+  }
+  else: if (scr_cmd == "stbmp") {
+    gosub *scr_cmd_stbmp
+  }
+  else: if (scr_cmd == "stjpg") {
+    gosub *scr_cmd_stjpg
+  }
+  else: if (scr_cmd == "stgif") {
+    gosub *scr_cmd_stgif
+  }
+  else: if (scr_cmd == "stpng") {
+    gosub *scr_cmd_stpng
+  }
+  else: if (scr_cmd == "stukgk") {
+    gosub *scr_cmd_stukgk
+  }
+  else: if (scr_cmd == "stpnga") {
+    gosub *scr_cmd_stpnga
+  }
+  else {
+    scr_msg = "エラー: 不明なコマンドです \"" + scr_cmd + "\""
+    gosub *scr_put_msg_ln
+    scr_error = 1
+  }
+return
+
+/*------------------------------------------------------------------------*/
+
+; スクリプトを終了
+*scr_cmd_exit
+  scr_exit = 1
+return
+
+/*------------------------------------------------------------------------*/
+
+; 指定ラベルにジャンプ
+*scr_cmd_goto
+  if (ezs_argc != 2) {
+    scr_msg = "Usage: goto label"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  scr_label = ezs_argv(1)
+  ezs_goto scr_label
+  if (stat == 0) {
+    scr_msg = "エラー: ラベルにジャンプできません \":" + scr_label + "\""
+    gosub *scr_put_msg_ln
+    scr_error = 1
+  }
+return
+
+/*------------------------------------------------------------------------*/
+
+; 指定ラベルにサブルーチンジャンプ
+*scr_cmd_call
+  if (ezs_argc != 2) {
+    scr_msg = "Usage: call label"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  scr_label = ezs_argv(1)
+  ezs_call scr_label
+  if (stat == 0) {
+    scr_msg = "エラー: ラベルにジャンプできません \":" + scr_label + "\""
+    gosub *scr_put_msg_ln
+    scr_error = 1
+  }
+return
+
+/*------------------------------------------------------------------------*/
+
+; サブルーチンから復帰
+*scr_cmd_ret
+  ezs_ret
+  if (stat == 0) {
+    scr_msg = "エラー: サブルーチン外でretが呼び出されました"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+  }
+return
+
+/*------------------------------------------------------------------------*/
+
+; 文字列を表示
+*scr_cmd_echo
+  if (ezs_argc == 2) {
+    stmp = getpath(ezs_argv(1), 16)
+    if (stmp == "on") {
+      scr_quiet = 0
+      return
+    }
+    else: if (stmp == "off") {
+      scr_quiet = 1
+      return
+    }
+  }
+
+  scr_msg = ""
+  repeat ezs_argc - 1
+    if (cnt != 0) : scr_msg += " "
+    scr_msg += ezs_argv(cnt + 1)
+  loop
+  scr_log += scr_msg + "\n"
+return
+
+/*------------------------------------------------------------------------*/
+
+; 現在の画像を表示
+*scr_cmd_plot
+  gosub *cpd_render
+return
+
+/*------------------------------------------------------------------------*/
+
+; cpdファイル読込
+*scr_cmd_ldcpd
+  if (ezs_argc < 2) {
+    scr_msg = "Usage: ldcpd filename"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  if (ezs_argc > 2) {
+    scr_msg = "エラー: 引数が多すぎます"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  cpd_name = scr_fn_prefix+ezs_argv(1)
+  exist cpd_name
+  if (strsize == -1) {
+    scr_msg = "エラー: 設定ファイルが開けません \"" + getpath(cpd_name, 8) + "\""
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+  gosub *cpd_load
+
+  cpd_redraw = 1
+  if (scr_error) : return
+return
+
+/*------------------------------------------------------------------------*/
+
+; cpdファイル保存
+*scr_cmd_stcpd
+  if (ezs_argc < 2) {
+    scr_msg = "Usage: stcpd filename"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  if (ezs_argc > 2) {
+    scr_msg = "エラー: 引数が多すぎます"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  cpd_name = scr_fn_prefix+ezs_argv(1)
+  gosub *cpd_save
+
+  scr_msg = "出力: \"" + cpd_name + "\""
+  gosub *scr_put_msg_ln
+return
+
+/*------------------------------------------------------------------------*/
+
+; 設定値の追加・変更
+*scr_cmd_st
+  if (ezs_argc == 2) {
+    ezs_argv(2) = ""
+    ezs_argc++
+  }
+  if (ezs_argc != 3) {
+    scr_msg = "Usage: st variable value"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  st_var = getpath(ezs_argv(1), 16)
+  st_val = ezs_argv(2)
+  if (st_var == "debug") {
+    scr_debug = boolint(st_val)
+  }
+  else: if (st_var == "prefix") {
+    st_target = scr_fn_prefix
+    gosub *st_modstr
+    scr_fn_prefix = st_target
+  }
+  else: if (st_var == "jpeg_quality") {
+    jpeg_quality = int(st_val)
+  }
+  else: if (st_var == "name") {
+    st_target = cpd_character_name
+    gosub *st_modstr
+    cpd_character_name = st_target
+    cpd_redraw = 1
+  }
+  else: if (st_var == "hair_front") {
+    st_target = cpd_parts_hair_front
+    gosub *st_modstr
+    cpd_parts_hair_front = st_target
+    cpd_redraw = 1
+  }
+  else: if (st_var == "hair_back") {
+    st_target = cpd_parts_hair_back
+    gosub *st_modstr
+    cpd_parts_hair_back = st_target
+    cpd_redraw = 1
+  }
+  else: if (st_var == "head") {
+    st_target = cpd_parts_head
+    gosub *st_modstr
+    cpd_parts_head = st_target
+    cpd_redraw = 1
+  }
+  else: if (st_var == "face") {
+    st_target = cpd_parts_face
+    gosub *st_modstr
+    cpd_parts_face = st_target
+    cpd_redraw = 1
+  }
+  else: if (st_var == "eye") {
+    st_target = cpd_parts_eye
+    gosub *st_modstr
+    cpd_parts_eye = st_target
+    cpd_redraw = 1
+  }
+  else: if (st_var == "body") {
+    st_target = cpd_parts_body
+    gosub *st_modstr
+    cpd_parts_body = st_target
+    cpd_redraw = 1
+  }
+  else: if (st_var == "accessory") {
+    c = peek(st_val, 0)
+
+    if (c == '-') {
+      ; アクセサリの削除
+      getstr st_val, st_val, 1
+      st_val_lw = getpath(st_val, 16)
+
+      j = -1
+      repeat cpd_accessory_num : i = cnt
+        if (getpath(cpd_parts_accessory(i), 16) == st_val_lw) {
+          j = cnt
+          break
+        }
+      loop
+
+      if (j >= 0) {
+        repeat cpd_accessory_num - j - 1, j : i = cnt
+          cpd_parts_accessory(i) = cpd_parts_accessory(i + 1)
+        loop
+        cpd_accessory_num--
+      }
+      else {
+        scr_msg = "警告: 削除しようとしたパーツは使用されていません \"" + st_val + "\""
+        gosub *scr_put_msg_ln
+      }
+    }
+    else: if (c == '+') {
+      ; アクセサリの追加
+      getstr st_val, st_val, 1
+      if (cpd_accessory_num == cpd_accessory_max) {
+        scr_msg = "警告: accessory_max が拡張されました (" + cpd_accessory_max + " -> " + (cpd_accessory_max + 1) + ")"
+        gosub *scr_put_msg_ln
+
+        cpd_accessory_max++
+        gosub *cpd_accessory_max_expand
+      }
+      cpd_parts_accessory(cpd_accessory_num) = st_val
+      cpd_accessory_num++
+    }
+    else {
+      ; アクセサリ上書き
+      cpd_accessory_num = 0
+      cpd_parts_accessory(cpd_accessory_num) = st_val
+      cpd_accessory_num++
+    }
+
+    cpd_redraw = 1
+  }
+  else: if (st_var == "hair_rgb") {
+    j = -1
+    repeat length(cpd_color_hair_str) : i = cnt
+      if (cpd_color_hair_str(i) == st_val) {
+        j = i
+        break
+      }
+    loop
+    if (j >= 0) {
+      cpd_color_hair_rgb = j
+    }
+    else {
+      cpd_color_hair_rgb = int(st_val)
+    }
+    cpd_redraw = 1
+  }
+  else: if (st_var == "hair_gray") {
+    j = -1
+    repeat length(cpd_bri_str) : i = cnt
+      if (cpd_bri_str(i) == st_val) {
+        j = i
+        break
+      }
+    loop
+    if (j >= 0) {
+      cpd_color_hair_gray = j
+    }
+    else {
+      cpd_color_hair_gray = int(st_val)
+    }
+    cpd_redraw = 1
+  }
+  else: if (st_var == "eye_rgb") {
+    j = -1
+    repeat length(cpd_color_eye_str) : i = cnt
+      if (cpd_color_eye_str(i) == st_val) {
+        j = i
+        break
+      }
+    loop
+    if (j >= 0) {
+      cpd_color_eye_rgb = j
+    }
+    else {
+      cpd_color_eye_rgb = int(st_val)
+    }
+    cpd_redraw = 1
+  }
+  else: if (st_var == "eye_gray") {
+    j = -1
+    repeat length(cpd_bri_str) : i = cnt
+      if (cpd_bri_str(i) == st_val) {
+        j = i
+        break
+      }
+    loop
+    if (j >= 0) {
+      cpd_color_eye_gray = j
+    }
+    else {
+      cpd_color_eye_gray = int(st_val)
+    }
+    cpd_redraw = 1
+  }
+  else: if (st_var == "skin_rgb") {
+    j = -1
+    repeat length(cpd_color_skin_str) : i = cnt
+      if (cpd_color_skin_str(i) == st_val) {
+        j = i
+        break
+      }
+    loop
+    if (j >= 0) {
+      cpd_color_skin_rgb = j
+    }
+    else {
+      cpd_color_skin_rgb = int(st_val)
+    }
+    cpd_redraw = 1
+  }
+  else: if (st_var == "skin_gray") {
+    j = -1
+    repeat length(cpd_bri_str) : i = cnt
+      if (cpd_bri_str(i) == st_val) {
+        j = i
+        break
+      }
+    loop
+    if (j >= 0) {
+      cpd_color_skin_gray = j
+    }
+    else {
+      cpd_color_skin_gray = int(st_val)
+    }
+    cpd_redraw = 1
+  }
+  else: if (st_var == "body_rgb") {
+    j = -1
+    repeat length(cpd_color_body_str) : i = cnt
+      if (cpd_color_body_str(i) == st_val) {
+        j = i
+        break
+      }
+    loop
+    if (j >= 0) {
+      cpd_color_body_rgb = j
+    }
+    else {
+      cpd_color_body_rgb = int(st_val)
+    }
+    cpd_redraw = 1
+  }
+  else: if (st_var == "body_gray") {
+    j = -1
+    repeat length(cpd_bri_str) : i = cnt
+      if (cpd_bri_str(i) == st_val) {
+        j = i
+        break
+      }
+    loop
+    if (j >= 0) {
+      cpd_color_body_gray = j
+    }
+    else {
+      cpd_color_body_gray = int(st_val)
+    }
+    cpd_redraw = 1
+  }
+  else: if (st_var == "bg_rgb") {
+    ezcs_parse_ln st_val
+    if (ezcs_argc != 3) {
+      scr_msg = "エラー: RGB値の指定が間違っています"
+      gosub *scr_put_msg_ln
+      scr_error = 1
+      return
+    }
+    cpd_color_bg_rgb(0) = int(ezcs_argv(0))
+    cpd_color_bg_rgb(1) = int(ezcs_argv(1))
+    cpd_color_bg_rgb(2) = int(ezcs_argv(2))
+    cpd_redraw = 1
+  }
+  else: if (st_var == "size_x") {
+    cpd_size_x = int(st_val)
+    cpd_redraw = 1
+  }
+  else: if (st_var == "size_y") {
+    cpd_size_y = int(st_val)
+    cpd_redraw = 1
+  } ; ここから本家にない独自設定
+  else: if (st_var == "opacity") {
+    cpd_opacity_master = int(st_val)
+    cpd_redraw = 1
+  }
+  else: if (st_var == "body_opacity") {
+    cpd_opacity_body = int(st_val)
+    cpd_redraw = 1
+  }
+  else: if (st_var == "skin_opacity") {
+    cpd_opacity_skin = int(st_val)
+    cpd_redraw = 1
+  }
+  else: if (st_var == "skin_trans_redir") {
+    cpd_trans_skin_redir = boolint(st_val)
+    cpd_redraw = 1
+  }
+  else: if (st_var == "trans_accessary_as_skin") {
+    cpd_trans_accessary_as_skin = boolint(st_val)
+    cpd_redraw = 1
+  }
+  else {
+    scr_msg = "エラー: 不明な変数名です \"" + st_var + "\""
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+return
+
+/*------------------------------------------------------------------------*/
+
+; 文字列の置換・追加・削除 (stコマンド用)
+*st_modstr
+    st_mode = peek(st_val, 0)
+    if (st_mode == '-') {
+      ; 指定フレーズを後方から検索して削除
+      getstr st_val, st_val, 1
+      if (strmid(st_target, -1, strlen(st_val)) == st_val) {
+        poke st_target, strlen(st_target) - strlen(st_val), 0
+      }
+      else {
+        scr_msg = "警告: フレーズはプリフィックスの末尾に存在しません \"" + st_val + "\""
+        gosub *scr_put_msg_ln
+      }
+    }
+    else: if (st_mode == '+') {
+      ; 指定フレーズを末尾に追加
+      getstr st_val, st_val, 1
+      st_target += st_val
+    }
+    else {
+      ; 指定フレーズで上書き
+      st_target = st_val
+    }
+return
+
+/*------------------------------------------------------------------------*/
+
+; bmpファイル保存
+*scr_cmd_stbmp
+  if (ezs_argc < 2) {
+    scr_msg = "Usage: stbmp filename"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  if (ezs_argc > 2) {
+    scr_msg = "エラー: 引数が多すぎます"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  img_name = scr_fn_prefix+ezs_argv(1)
+  gosub *cpd_render
+  if (scr_error) : return
+
+  gsel WID_PREVIEW
+  DCtoDIB hdc, 0, 0, cpd_size_x, cpd_size_y: hDib = stat
+  DIBtoBMP img_name, hDib: result = stat
+  DeleteDIB hDib
+  gsel WID_MAIN
+
+  if (result == 0) {
+    scr_msg = "エラー: ファイルに書き込みできません \"" + img_name + "\""
+    gosub *scr_put_msg_ln
+  }
+
+  scr_msg = "出力: \"" + img_name + "\""
+  gosub *scr_put_msg_ln
+return
+
+/*------------------------------------------------------------------------*/
+
+; jpgファイル保存
+*scr_cmd_stjpg
+  if (ezs_argc < 2) {
+    scr_msg = "Usage: stjpg filename (quality)"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  img_quality = jpeg_quality
+  img_name = scr_fn_prefix+ezs_argv(1)
+  if (ezs_argc == 3) {
+    img_quality = int(ezs_argv(2))
+  }
+  else: if (ezs_argc > 3) {
+    scr_msg = "エラー: 引数が多すぎます"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  gosub *cpd_render
+  if (scr_error) : return
+
+  gsel WID_PREVIEW
+  DCtoDIB hdc, 0, 0, cpd_size_x, cpd_size_y: hDib = stat
+  DIBtoJPG img_name, hDib, img_quality, 0: result = stat
+  DeleteDIB hDib
+  gsel WID_MAIN
+
+  if (result == 0) {
+    scr_msg = "エラー: ファイルに書き込みできません \"" + img_name + "\""
+    gosub *scr_put_msg_ln
+  }
+
+  scr_msg = "出力: \"" + img_name + "\""
+  gosub *scr_put_msg_ln
+return
+
+/*------------------------------------------------------------------------*/
+
+; gifファイル保存
+*scr_cmd_stgif
+  if (ezs_argc < 2) {
+    scr_msg = "Usage: stgif filename"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  if (ezs_argc > 2) {
+    scr_msg = "エラー: 引数が多すぎます"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  img_name = scr_fn_prefix+ezs_argv(1)
+  gosub *cpd_render
+  if (scr_error) : return
+
+  gsel WID_PREVIEW
+  DCtoDIB hdc, 0, 0, cpd_size_x, cpd_size_y: hDib = stat
+  DIBtoGIF img_name, hDib, 0: result = stat
+  DeleteDIB hDib
+  gsel WID_MAIN
+
+  if (result == 0) {
+    scr_msg = "エラー: ファイルに書き込みできません \"" + img_name + "\""
+    gosub *scr_put_msg_ln
+  }
+
+  scr_msg = "出力: \"" + img_name + "\""
+  gosub *scr_put_msg_ln
+return
+
+/*------------------------------------------------------------------------*/
+
+; pngファイル保存 (背景合成)
+*scr_cmd_stpng
+  if (ezs_argc < 2) {
+    scr_msg = "Usage: stpng filename"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  if (ezs_argc > 2) {
+    scr_msg = "エラー: 引数が多すぎます"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  img_name = scr_fn_prefix+ezs_argv(1)
+  gosub *cpd_render
+  if (scr_error) : return
+
+  gsel WID_PREVIEW
+  DCtoDIB hdc, 0, 0, cpd_size_x, cpd_size_y: hDib = stat
+  DIBtoPNG img_name, hDib, 0: result = stat
+  DeleteDIB hDib
+  gsel WID_MAIN
+
+  if (result == 0) {
+    scr_msg = "エラー: ファイルに書き込みできません \"" + img_name + "\""
+    gosub *scr_put_msg_ln
+  }
+
+  scr_msg = "出力: \"" + img_name + "\""
+  gosub *scr_put_msg_ln
+return
+
+/*------------------------------------------------------------------------*/
+
+; 伺か用に画像を保存 (png+pna)
+*scr_cmd_stukgk
+  if (ezs_argc < 2) {
+    scr_msg = "Usage: stukgk filename_without_extension"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  if (ezs_argc > 2) {
+    scr_msg = "エラー: 引数が多すぎます"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  img_name = scr_fn_prefix+ezs_argv(1)
+  gosub *cpd_render
+  if (scr_error) : return
+
+  gsel WID_RENDER
+  DCtoDIB hdc, cpd_size_x, 0, cpd_size_x, cpd_size_y: hDib = stat
+  DIBtoPNG img_name + ".pna", hDib, 0: result = stat
+  DeleteDIB hDib
+  DCtoDIB hdc, 0, 0, cpd_size_x, cpd_size_y: hDib = stat
+  DIBtoPNG img_name + ".png", hDib, 0: result = stat
+  DeleteDIB hDib
+  gsel WID_MAIN
+
+  if (result == 0) {
+    scr_msg = "エラー: ファイルに書き込みできません \"" + img_name + "\""
+    gosub *scr_put_msg_ln
+  }
+
+  scr_msg = "出力: \"" + img_name + "\""
+  gosub *scr_put_msg_ln
+return
+
+/*------------------------------------------------------------------------*/
+
+; pngファイル保存 (アルファ付き)
+*scr_cmd_stpnga
+  if (ezs_argc < 2) {
+    scr_msg = "Usage: stpnga filename"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  if (ezs_argc > 2) {
+    scr_msg = "エラー: 引数が多すぎます"
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+
+  img_name = scr_fn_prefix+ezs_argv(1)
+  gosub *cpd_render
+  if (scr_error) : return
+
+  gsel WID_RENDER
+  pngsave_a img_name
+  gsel WID_MAIN
+
+  scr_msg = "出力: \"" + img_name + "\""
+  gosub *scr_put_msg_ln
+return
+
+/*------------------------------------------------------------------------*/
+
+; 現在の設定でレンダリング
+*cpd_render
+  ; 更新フラグ立てないと無視される
+  if (cpd_redraw == 0) : return
+
+  wid = ginfo_sel
+
+  ; パーツのあるフォルダを決定
+  dir_chr_parts_set = dir_chr_parts + "\\" + cpd_character_name
+
+  ; アクセサリは先に存在確認
+  gosub *cpd_are_accessories_exist
+  if (scr_error) : goto *cpd_render_return
+
+  buffer WID_PARTS, cpd_size_x * 2, cpd_size_y : cls 4
+  buffer WID_RENDER, cpd_size_x * 2, cpd_size_y : cls 4
+  buffer WID_PREVIEW, cpd_size_x, cpd_size_y : cls 4
+
+  ; ハイパーレンダリングランド開園
+  repeat length(cpd_render_priority) : i = cnt
+    chr_parts_group_name = cpd_render_priority(i)
+    chr_parts_is_accessory = (instr(chr_parts_group_name, 0, "accessory") != -1)
+
+    chr_parts_accessory_i = 0
+
+*cpd_render_accessory_loop
+
+    gosub *cpd_set_render_prms
+    if (scr_error) : break
+    if (chr_parts_name == "") : goto *cpd_render_continue
+
+    if (chr_parts_skin_redir == false) {
+      ; 通常の描写
+      gosub *cpd_render_parts
+      if (scr_error) : break
+      if (chr_parts_not_found) : goto *cpd_render_continue
+
+      gsel WID_RENDER : redraw 2
+      gmode 7, cpd_size_x, cpd_size_y, chr_parts_opacity
+      pos 0, 0 : gcopy8 WID_PARTS, 0, 0
+      gsel WID_PARTS
+    }
+    else {
+      ; 透過に応じて素体をすり替える場合
+      chr_real_parts_name = chr_parts_name
+      chr_parts_name = chr_parts_skin_redir_name
+      gosub *cpd_render_parts
+      if (scr_error) : break
+      if (chr_parts_not_found) : goto *cpd_render_continue
+
+      ; 陰影の除かれた素体をskinの透明度で描写
+      gsel WID_RENDER : redraw 2
+      gmode 7, cpd_size_x, cpd_size_y, cpd_opacity_skin
+      pos 0, 0 : gcopy8 WID_PARTS, 0, 0
+      gsel WID_PARTS
+
+      chr_parts_name = chr_real_parts_name
+      gosub *cpd_render_parts
+      if (scr_error) : break
+      if (chr_parts_not_found) : goto *cpd_render_continue
+
+      ; 陰影つきの素体をbodyの透明度で描写
+      gsel WID_RENDER : redraw 2
+      gmode 7, cpd_size_x, cpd_size_y, cpd_opacity_body
+      pos 0, 0 : gcopy8 WID_PARTS, 0, 0
+      gsel WID_PARTS
+    }
+
+*cpd_render_continue
+
+    chr_parts_accessory_i++
+    if ((chr_parts_is_accessory != 0) & (chr_parts_group_name != "hair_back_accessory") & (chr_parts_group_name != "hair_front_accessory")) {
+      if (chr_parts_accessory_i < cpd_accessory_num) : goto *cpd_render_accessory_loop      
+    }
+  loop
+  if (scr_error) : goto *cpd_render_return
+
+  ; 全体の透明度を反映
+  gsel WID_PARTS
+  gmode 0, cpd_size_x*2, cpd_size_y, 256
+  pos 0, 0 : gcopy WID_RENDER, 0, 0
+  gsel WID_RENDER : color 0, 0, 0 : boxf
+  gmode 7, cpd_size_x, cpd_size_y, cpd_opacity_master
+  pos 0, 0 : gcopy8 WID_PARTS, 0, 0
+
+  ; レンダリング完了
+  gsel WID_RENDER : redraw 1
+
+  ; プレビュー画像作成
+  gsel WID_PREVIEW : redraw 2
+  color cpd_color_bg_rgb(0), cpd_color_bg_rgb(1), cpd_color_bg_rgb(2) : boxf
+  gmode 7, cpd_size_x, cpd_size_y, 256 : pos 0, 0 : gcopy WID_RENDER, 0, 0
+  redraw 1
+  ; 表示
+  gsel WID_MAIN : x = ginfo_wx1 : y = ginfo_wy2
+  if ((cpd_size_x != cpd_size_x_old) | (cpd_size_y != cpd_size_y_old)) {
+    screen WID_VIEW, cpd_size_x, cpd_size_y, 4, x, y
+  }
+  gsel WID_VIEW : redraw 3
+  gmode 1, cpd_size_x, cpd_size_y : pos 0, 0 : gcopy WID_PREVIEW, 0, 0
+
+  cpd_redraw = 0
+
+; 描画先を戻してreturn
+*cpd_render_return
+  gsel wid
+return
+
+/*------------------------------------------------------------------------*/
+
+; アクセサリの存在確認 (ちょっといい加減)
+
+*cpd_are_accessories_exist
+  repeat cpd_accessory_num : i = cnt
+    repeat length(cpd_render_priority) : j = cnt
+      if (instr(cpd_render_priority(j), 0, "accessory") == -1) : continue
+      exist dir_chr_parts_set + "\\" + cpd_render_priority(j) + "\\" + cpd_parts_accessory(i) + ".png"
+      if (strsize != -1) : break
+    loop
+    if (strsize == -1) {
+      scr_msg = "エラー: 不明なアクセサリです \"" +cpd_parts_accessory(i) + "\""
+      gosub *scr_put_msg_ln
+      scr_error = 1
+    }
+  loop
+return
+
+/*------------------------------------------------------------------------*/
+
+; グループ名からパーツ情報を格納
+*cpd_set_render_prms
+  chr_parts_name = ""
+  chr_parts_opacity = 256
+  chr_parts_skin_redir = cpd_trans_skin_redir && (chr_parts_group_name == "body_back") && (cpd_opacity_body < 256)
+  chr_parts_skin_redir_name = ""
+
+  if (chr_parts_group_name == "hair_back") {
+    chr_parts_name = cpd_parts_hair_back
+    chr_parts_opacity = cpd_opacity_skin
+  }
+  else: if (chr_parts_group_name == "hair_back_accessory") {
+    chr_parts_name = cpd_parts_hair_back
+    chr_parts_opacity = cpd_opacity_skin
+;    chr_parts_opacity = cpd_opacity_body
+  }
+  else: if (chr_parts_group_name == "body_back") {
+    chr_parts_name = cpd_parts_body
+    chr_parts_opacity = cpd_opacity_skin
+  }
+  else: if (chr_parts_group_name == "body_front") {
+    chr_parts_name = cpd_parts_body
+    chr_parts_opacity = cpd_opacity_body
+  }
+  else: if (chr_parts_group_name == "body_front_color") {
+    chr_parts_name = cpd_parts_body
+    chr_parts_opacity = cpd_opacity_body
+  }
+  else: if (chr_parts_group_name == "head") {
+    chr_parts_name = cpd_parts_head
+    chr_parts_opacity = cpd_opacity_skin
+  }
+  else: if (chr_parts_group_name == "face_back") {
+    chr_parts_name = cpd_parts_face
+    chr_parts_opacity = cpd_opacity_skin
+  }
+  else: if (chr_parts_group_name == "hair_front") {
+    chr_parts_name = cpd_parts_hair_front
+    chr_parts_opacity = cpd_opacity_skin
+  }
+  else: if (chr_parts_group_name == "hair_front_accessory") {
+    chr_parts_name = cpd_parts_hair_front
+    chr_parts_opacity = cpd_opacity_skin
+;    chr_parts_opacity = cpd_opacity_body
+  }
+  else: if (chr_parts_group_name == "face_front") {
+    chr_parts_name = cpd_parts_face
+    chr_parts_opacity = cpd_opacity_skin
+  }
+  else: if (chr_parts_group_name == "eye") {
+    chr_parts_name = cpd_parts_eye
+    chr_parts_opacity = cpd_opacity_skin
+  }
+  else: if (chr_parts_is_accessory) {
+    if (cpd_trans_accessary_as_skin) {
+      chr_parts_opacity = cpd_opacity_skin
+    }
+    else {
+      chr_parts_opacity = cpd_opacity_body
+    }
+
+    if (cpd_accessory_num > 0) {
+      exist dir_chr_parts_set + "\\" + chr_parts_group_name + "\\" + cpd_parts_accessory(chr_parts_accessory_i) + ".png"
+      if (strsize == -1) {
+        chr_parts_name = ""
+      }
+      else {
+        chr_parts_name = cpd_parts_accessory(chr_parts_accessory_i)
+      }
+    }
+    else {
+      chr_parts_name = ""
+    }
+  }
+
+  chr_parts_color_type = ""
+  if (chr_parts_is_accessory) {
+          if (instr(chr_parts_name, 0, "(髪)") != -1) { chr_parts_color_type = "hair" }
+    else: if (instr(chr_parts_name, 0, "(瞳)") != -1) { chr_parts_color_type = "eye" }
+    else: if (instr(chr_parts_name, 0, "(肌)") != -1) { chr_parts_color_type = "skin" }
+    else: if (instr(chr_parts_name, 0, "(服)") != -1) { chr_parts_color_type = "body" }
+  }
+  else: if ((chr_parts_group_name == "hair_front") | (chr_parts_group_name == "hair_back")) {
+    chr_parts_color_type = "hair"
+  }
+  else: if (chr_parts_group_name == "eye") {
+    chr_parts_color_type = "eye"
+  }
+  else: if (chr_parts_group_name == "body_back" | chr_parts_group_name == "head") {
+    chr_parts_color_type = "skin"
+    if (chr_parts_skin_redir) {
+      chr_body_back_type = peek(chr_parts_name, strlen(chr_parts_name)-1) - '0'
+      if ((chr_body_back_type < 0) || (chr_body_back_type > 9)) {
+        chr_parts_skin_redir = false
+      }
+      else {
+        if (chr_body_back_type & 1) {
+          chr_parts_skin_redir_name = "素体1"
+        }
+        else {
+          chr_parts_skin_redir_name = "素体2"
+        }
+        exist dir_chr_parts_set + "\\" + chr_parts_group_name + "\\" + chr_parts_skin_redir_name + ".png"
+        if (strsize == -1) {
+          chr_parts_skin_redir = false
+        }
+      }
+    }
+  }
+  else: if (chr_parts_group_name == "body_front_color") {
+    chr_parts_color_type = "body"
+  }
+
+  if (chr_parts_color_type == "hair") {
+    chr_parts_color_rgb  = cpd_color_hair_rgb
+    chr_parts_color_gray = cpd_color_hair_gray
+  }
+  else: if (chr_parts_color_type == "eye") {
+    chr_parts_color_rgb  = cpd_color_eye_rgb
+    chr_parts_color_gray = cpd_color_eye_gray
+  }
+  else: if (chr_parts_color_type == "skin") {
+    chr_parts_color_rgb  = cpd_color_skin_rgb
+    chr_parts_color_gray = cpd_color_skin_gray
+  }
+  else: if (chr_parts_color_type == "body") {
+    chr_parts_color_rgb  = cpd_color_body_rgb
+    chr_parts_color_gray = cpd_color_body_gray
+  }
+return
+
+/*------------------------------------------------------------------------*/
+
+; 指定パーツをレンダリング
+*cpd_render_parts
+  chr_parts_path = dir_chr_parts_set + "\\" + chr_parts_group_name + "\\" + chr_parts_name + ".png"
+  chr_parts_not_found = 1
+
+  exist chr_parts_path
+  if (strsize == -1) {
+    if ((chr_parts_is_accessory == 0) & (chr_parts_group_name != "body_front") & (chr_parts_group_name != "body_front_color") & (chr_parts_group_name != "face_back")) {
+      scr_msg = "エラー: パーツファイルが開けません \"" + cpd_character_name + "/" + chr_parts_group_name + "/" + chr_parts_name + "\""
+      gosub *scr_put_msg_ln
+      scr_error = 1
+    }
+    return
+  }
+  chr_parts_not_found = 0
+
+  ; パーツを展開
+  gsel WID_PARTS
+  ; アルファチャンネルを先に取得
+  PNGAtoDIB chr_parts_path: hDib = stat
+  if (hDib == 0) {
+    scr_msg = "エラー: パーツファイルが開けません \"" + cpd_character_name + "/" + chr_parts_group_name + "/" + chr_parts_name + "\""
+    gosub *scr_put_msg_ln
+    scr_error = 1
+    return
+  }
+  ; 画像の大きさをチェック
+  HeadDIB hDib, varptr(bmih)
+  if ((bmih(1) != cpd_size_x) | (bmih(2) != cpd_size_y)) {
+;    DeleteDIB hDib
+
+    scr_msg = "警告: 画像のサイズが異なります " + bmih(1) + "x" + bmih(2) + " \"" + cpd_character_name + "/" + chr_parts_group_name + "/" + chr_parts_name + "\""
+    gosub *scr_put_msg_ln
+;    scr_error = 1
+;    return
+  }
+  ; アルファチャンネルを転送
+  DIBtoDC hdc, cpd_size_x, 0, cpd_size_x, cpd_size_y, hDib, 0, 0, SRCCOPY
+  DeleteDIB hDib
+  ; RGBチャンネルを取得
+  PNGtoDIB chr_parts_path: hDib = stat
+  gosub *cpd_render_parts_filter
+  DIBtoDC hdc, 0, 0, cpd_size_x, cpd_size_y, hDib, 0, 0, SRCCOPY
+  DeleteDIB hDib
+  ; 描画
+  redraw 1
+return
+
+/*------------------------------------------------------------------------*/
+
+; パーツの色などを補正
+*cpd_render_parts_filter
+  rgb  = chr_parts_color_rgb
+  gray = chr_parts_color_gray
+
+  if (chr_parts_color_type == "hair") {
+    ReplaceDIB hDib, hair_rgb_rTo(rgb), hair_rgb_gTo(rgb), hair_rgb_bTo(rgb)
+    GammaDIB hDib, hair_rgb_rGma(rgb), hair_rgb_gGma(rgb), hair_rgb_bGma(rgb)
+    GrayDIB hDib, hair_gray_lv(gray)
+    ToneDIB hDib, 2, 2, 2
+  }
+  else: if (chr_parts_color_type == "eye") {
+    ReplaceDIB hDib, eye_rgb_rTo(rgb), eye_rgb_gTo(rgb), eye_rgb_bTo(rgb)
+    GrayDIB hDib, eye_gray_lv(gray)
+    ToneDIB hDib, 2, 2, 2
+  }
+  else: if (chr_parts_color_type == "skin") {
+    ShadeDIB hDib, skin_rgb_rMul(rgb), skin_rgb_gMul(rgb), skin_rgb_bMul(rgb)
+    GammaDIB hDib, skin_gray_gma(gray), skin_gray_gma(gray), skin_gray_gma(gray)
+    ToneDIB hDib, 2, 2, 2
+  }
+  else: if (chr_parts_color_type == "body") {
+    ReplaceDIB hDib, body_rgb_rTo(rgb), body_rgb_gTo(rgb), body_rgb_bTo(rgb)
+    GrayDIB hDib, body_gray_lv(gray)
+    ToneDIB hDib, 2, 2, 2
+  }
+return
+
+/*------------------------------------------------------------------------*/
+
+; アクセサリ最大数を拡張 (縮小注意)
+*cpd_accessory_max_expand
+  i = cpd_accessory_num : if (i < 1) : i = 1
+  sdim cpd_parts_accessory_, 64, i
+  repeat cpd_accessory_num : i = cnt
+    cpd_parts_accessory_(i) = cpd_parts_accessory(i)
+  loop
+  sdim cpd_parts_accessory, 64, cpd_accessory_max
+  repeat cpd_accessory_num : i = cnt
+    cpd_parts_accessory(i) = cpd_parts_accessory_(i)
+  loop
+return

@@ -1,0 +1,21 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "morsegen", "morsegen.csproj", "{884CC143-2480-479C-915E-FAFBF53E1434}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{884CC143-2480-479C-915E-FAFBF53E1434}.Debug.ActiveCfg = Debug|.NET
+		{884CC143-2480-479C-915E-FAFBF53E1434}.Debug.Build.0 = Debug|.NET
+		{884CC143-2480-479C-915E-FAFBF53E1434}.Release.ActiveCfg = Release|.NET
+		{884CC143-2480-479C-915E-FAFBF53E1434}.Release.Build.0 = Release|.NET
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

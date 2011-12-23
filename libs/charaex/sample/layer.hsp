@@ -1,0 +1,245 @@
+/*--------------------------------------------------------------
+  レイヤー合成処理サンプル
+--------------------------------------------------------------*/
+
+#include "charaex.as"
+
+#include "hsp3util.as"
+#include "imgctl3.as"
+#include "pngio.as"
+
+#const  null        0
+#const  true        1
+#const  false       0
+
+	// 背景色
+	background = 0, 0, 0
+	// 合成をステップ実行するか
+	show_step = false
+	// ファイル出力をしない
+	no_output = false
+
+/*------------------------------------------------------------*/
+
+randomize
+
+hair_tone_fixed = false
+
+// きれい好きなんです（＞＜；）
+#ifdef _DEBUG
+	delete "hsptmp"
+	delete "obj"
+#endif
+
+#packopt name "layer"
+#packopt runtime "hsp3c.hrt"
+#packopt hide 1
+
+/*------------------------------------------------------------*/
+
+#const  WID_MAIN    0
+#const  WID_RGB     3
+#const  WID_ALPHA   4
+#const  WID_SRC     5
+#const  WID_PREV    6
+#const  WID_BG      7
+
+#define PARTS_DIR   "parts/"
+
+*init
+
+	click_plz = ""
+	if (show_step) {
+		click_plz = " - クリックとかで進むよ"
+	}
+
+	sx = 300: sy = 400
+	screen WID_SRC, sx * 2, sy, 0, 0, 0: gsel WID_SRC
+	title "合成元パーツ表示機"
+
+	screen WID_PREV, sx, sy, 0, 0, 40 + sy: gsel WID_PREV
+	title "表示確認機"
+
+	buffer WID_BG, sx, sy: bs = 8
+	; グリッドを描く
+	redraw 2
+	color 255, 255, 255: boxf
+	color 204, 204, 204
+	repeat (sy + bs - 1) / bs: y = cnt
+		repeat (sx + bs - 1) / bs: x = cnt
+			t = (x + (y & 1)) & 1
+			if (t) {
+				boxf x*bs, y*bs, ((x+1)*bs)-1, ((y+1)*bs)-1
+			}
+		loop
+	loop
+	redraw 1
+
+	screen WID_MAIN, sx * 2, sy, 0, 10 + sx * 2, 0
+	gsel WID_MAIN, 1: cls 4
+	title "なんとかかんとか機" + click_plz
+
+	color background(0), background(1), background(2)
+	boxf 0, 0, sx - 1, sy
+
+/*------------------------------------------------------------*/
+
+	// パーツ一覧（順序）読み込み
+	notesel parts_txt
+	noteload PARTS_DIR + "parts_bu.txt"
+	note2array parts, parts_txt
+	noteunsel
+
+	if ((length(parts) == 0) | (parts(0) == 1)): end
+
+/*------------------------------------------------------------*/
+
+*main
+
+	repeat length(parts): i = cnt
+		// パーツはあるかな？かな？
+		png_fn = PARTS_DIR + parts(i) + ".png"
+		exist png_fn: png_size = strsize
+		if (png_size == -1) : continue
+
+		// とりあえず2枚ドロー
+		png_load WID_RGB, png_fn: gosub *filter
+		png_loada WID_ALPHA, png_fn
+
+		// 横に並べて召還
+		gsel WID_SRC: gmode 0, sx, sy
+		pos  0, 0: gcopy WID_RGB, 0, 0
+		pos sx, 0: gcopy WID_ALPHA, 0, 0
+		title parts(i) + " - 合成元パーツ表示機"
+
+		// 重ね合わせ（下側のレイヤーが先）
+		gsel WID_MAIN: gmode 0, sx, sy, pt_alpha
+		pos 0, 0: gcopy8 WID_SRC, 0, 0
+
+		// 合成テスト
+		gsel WID_PREV: gmode 1, sx, sy
+		pos 0, 0: gcopy WID_BG, 0, 0
+		gmode 7, sx, sy
+		pos 0, 0: gcopy WID_MAIN, 0, 0
+
+		if (show_step) {
+			gosub *wait_click
+		}
+	loop
+
+	// 合成後結果を転送
+	gsel WID_RGB: gmode 0, sx, sy
+	pos 0, 0: gcopy WID_MAIN, 0, 0
+	gsel WID_ALPHA: gmode 0, sx, sy
+	pos 0, 0: gcopy WID_MAIN, sx, 0
+	gsel WID_MAIN
+
+	if (no_output == false) {
+		dialog "png", 17, "PNG イメージ"
+		if (stat != 0) {
+			png_fn = refstr
+			s = getpath(png_fn, 2)
+			if (s != ".png") {
+				png_fn += ".png"
+			}
+			png_dir = getpath(png_fn, 32)
+	
+			pngsave_a png_fn
+			png_save WID_RGB, png_dir+"surface.png"
+			png_save WID_ALPHA, png_dir+"surface.pna"
+		}
+	}
+
+	if ((show_step != false) | (no_output != false)) {
+		title "完了 - なんとかかんとか機"
+		gosub *wait_click
+	}
+	end
+
+/*------------------------------------------------------------*/
+
+*filter
+	pt_alpha = 256
+	DCtoDIB hdc, 0, 0, sx, sy: hDib = stat
+
+	if (strmid(parts(i), 0, 5) == "hair_") {
+		; 髪の毛の色を変えてみる
+		gosub *fix_hair_tone
+		ToneDIBHSV hDib, hair_h, hair_s, hair_v
+	}
+	else: if (parts(i) == "body_front") {
+		; 服の透明度を変えてみる
+		bf_tbl = 0, 96, 160, 160, 256, 256, 256, 256
+		bf_rate = bf_tbl(rnd(8))
+		pt_alpha = bf_rate
+		gsel WID_PREV
+		title "" + (bf_rate * 100 / 256) + "% - 表示確認機"
+		gsel WID_RGB
+	}
+
+	DIBtoDC hdc, 0, 0, sx, sy, hDib, 0, 0, $CC0020: redraw 1
+	DeleteDIB hDib
+return
+
+/*------------------------------------------------------------*/
+
+*fix_hair_tone
+	if (hair_tone_fixed) : return
+
+	if (0) {
+		; 通すな危険
+		DeleteDIB hDib
+		h = 0: s = 0: v = 0
+		gosub *fix_tone
+	
+		hair_h = h
+		hair_s = s
+		hair_v = v
+	}
+	else {
+		; 色合いを決める
+		n = 24
+;		hair_h = rnd(n) * (360/n)
+		hair_h = 149
+		hair_s = 20
+		hair_v = 40
+	}
+
+	hair_tone_fixed = true
+return
+
+/*------------------------------------------------------------*/
+
+*fix_tone
+	wait 1: stick k, 15
+	gsel WID_RGB: DCtoDIB hdc, 0, 0, sx, sy: hDib = stat
+	gsel WID_PREV
+
+	h = mousey * 360 / sy
+	if (k & 1) : s--
+	if (k & 4) : s++
+	if (k & 8) : v--
+	if (k & 2) : v++
+	if (s < -255): s = -255
+	if (s >  255): s =  255
+	if (v < -255): v = -255
+	if (v >  255): v =  255
+	title "表示確認機 - HSV("+h+","+s+","+v+")"
+
+	ToneDIBHSV hDib, h, s, v
+	DIBtoDC hdc, 0, 0, sx, sy, hDib, 0, 0, $CC0020: redraw 1
+	if (k & 0x0100) {
+		return
+	}
+	DeleteDIB hDib
+goto *fix_tone
+
+/*------------------------------------------------------------*/
+
+*wait_click
+	// πタッチされるまで待つ（違）
+	wait 1: stick k
+	if (k & 0x03B0) : return
+goto *wait_click
+
+/*------------------------------------------------------------*/

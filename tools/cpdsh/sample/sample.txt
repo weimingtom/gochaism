@@ -1,0 +1,98 @@
+;---------------------------------------------------------------------------
+; cpdsh sample script
+; http://d.hatena.ne.jp/GOCHA/
+;
+; 【超アバウトな説明】
+; 　空白区切りで命令と引数を記述します。
+; 　セミコロン（;）で始まる行はコメント行です。
+; 　コロン（:）で始まる行はラベルです（ラベル名以上の記述禁止）。
+;---------------------------------------------------------------------------
+
+	echo	サンプルスクリプトを実行するね。
+	echo	スクリプトのフォルダに画像がたくさん出来るよ。
+	echo	お掃除したいときは cleanup.bat を実行するといいよ。
+	echo
+
+	; 基本形を読み込み
+	ldcpd	"sample.cpd"
+
+; 衣装を替えながら画像を出力
+:main
+	st	prefix	"セーラー服_"
+	st	body	"セーラー服"
+	st	body_rgb	"青"
+	st	body_gray	"標準"
+	call	out_img_set
+
+	st	prefix	"サマードレス_"
+	st	body	"サマードレス"
+	st	body_rgb	"水色"
+	st	body_gray	"標準"
+	call	out_img_set
+
+	st	prefix	"ブレザー_"
+	st	body	"ブレザー"
+	st	body_rgb	"黒"
+	st	body_gray	"標準"
+	call	out_img_set
+
+	st	prefix	"巫女装束_"
+	st	body	"巫女装束"
+	st	body_rgb	"赤"
+	st	body_gray	"+2"
+	call	out_img_set
+
+	exit
+
+; 笑い、怒り、困り、照れ、半透明の画像を出力
+:out_img_set
+	st	body	+"1"
+	st	face	"笑い(口開き)"
+	st	eye	"閉じ目2"
+	st	prefix	+"笑"
+	call	out_img
+	st	prefix	-"笑"
+	st	body	-"1"
+
+	st	body	+"1"
+	st	face	"怒り(口開き)"
+	st	eye	"普通な目3"
+	st	prefix	+"怒"
+	call	out_img
+	st	prefix	-"怒"
+	st	body	-"1"
+
+	st	body	+"2"
+	st	face	"困り(口開き)"
+	st	eye	"普通な目2"
+	st	prefix	+"困"
+	call	out_img
+	st	prefix	-"困"
+	st	body	-"2"
+
+	st	body	+"2"
+	st	face	"照れ(口閉じ)"
+	st	eye	"閉じ目1"
+	st	prefix	+"照"
+	call	out_img
+	st	prefix	-"照"
+	st	body	-"2"
+
+	st	body	+"2"
+	st	face	"困り(口開き)"
+	st	eye	"普通な目3"
+	st	skin_opacity	"256"
+	st	body_opacity	"181"
+	st	prefix	+"透"
+	call	out_img
+	st	prefix	-"透"
+	st	skin_opacity	"256"
+	st	body_opacity	"256"
+	st	body	-"2"
+
+	ret
+
+; 画像を何かしらの形で出力
+:out_img
+	stjpg	".jpg"
+	ret

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
+  <head>
+    <title>cpitest2</title>
+    <link rel="stylesheet" title="Innocent Style" media="screen,tv" href="doc/css/innocent.css" />
+  </head>
+  <body id="gocha-s151-xrea-com">
+    <h1>cpitest2</h1>
+    <div class="content">
+      <div id="main">
+        <div class="section" id="toc">
+          <h2>目次</h2>
+          <div class="content">
+            <ul>
+              <li><a href="#about_">概要</a></li>
+              <li><a href="#usage_">使用方法</a>
+              <ul>
+                <li><a href="#usage_caution_">注意点</a></li>
+              </ul>
+              </li>
+              <li><a href="#plugin_">プラグイン</a></li>
+              <li><a href="#agreement_">おやくそく</a></li>
+              <li><a href="#related_">関連ソフト</a></li>
+              <li><a href="#thanks_">謝辞</a></li>
+              <li><a href="#history_">更新履歴</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="section" id="about_">
+          <h2>概要</h2>
+          <div class="content">
+            <p>簡単一発操作でゲームのアーカイブなどから画像・音声・動画などを抽出します。BMP、JPEG、GIF、PNG、MAG、WAVE、MIDI、OGGなどに対応しています。</p>
+            <p>元々、プラグインのテスト目的で作成したプログラムで、正式名称は「cpi plugin tester Ⅱ」と書いていました。しかし現在、積極的な開発継続の見込みがなく、巷に類似した優秀なソフトも多数あります。私がプラグインおよび利用プログラムに大幅な改善を加えることはまずないでしょう。よって、テスト用プログラムであったこのアプリケーションも、略称の「cpitest2」を正式名称としたソフトウェアとしてリリースすることにしました。</p>
+            <p>本体・プラグインともにソースを公開しています。プラグインのデータ照合ルーチンなど、魅力を感じるコードがあるようでしたら、どうぞ遠慮なく借用・組み込みしてください（汚いソースコードですが！）。</p>
+          </div>
+        </div>
+        <div class="section" id="usage_">
+          <h2>使用方法</h2>
+          <div class="content">
+            <p>コマンドライン引数からファイルを処理します。cpitest2の実行ファイルにファイルをドロップしてください。収穫があれば、元ファイルと同じパスにフォルダが作成され、その中にファイルが抽出されます。</p>
+            <div class="section" id="usage_caution_">
+              <h3>注意点</h3>
+              <div class="content">
+                <ul>
+                  <li>処理時にファイル全体を読み込むため、巨大なファイルの処理には莫大なメモリ容量を要求します。</li>
+                  <li>ファイルは検出次第、ドライブの空き容量も気にせず即出力されます。</li>
+                  <li>フォルダのリアルタイム展開が、時に冗長な動きをするかも。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="section" id="plugin_">
+          <h2>プラグイン</h2>
+          <div class="content">
+            <p>新たにプラグインを開発することで、対応フォーマットを増やすことができます。開発途上だけあって、幅広い使い方をするには不足の感じられる仕様ですが、代わりに中の形はものすごく単純です。ファイル抽出のちょっとした助けにはなるかも。</p>
+            <p>プラグインの仕様は特に解説しません。ソースコードからでも仕様は十分に把握できるのではないかと思います。</p>
+          </div>
+        </div>
+        <div class="section" id="agreement_">
+          <h2>おやくそく</h2>
+          <div class="content">
+            <ul>
+              <li>自己責任の下でご利用ください（特に著作権周り）。</li>
+              <li>転載・再配布などはお好きにどうぞ。</li>
+              <li>GPLよりもむしろ<a class="ex-ref" href="http://www.kmonos.net/nysl/">NYSL</a>的なロマンス。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="section" id="related_">
+          <h2>関連ソフト</h2>
+          <div class="content">
+            <p>cpitest2のようなソフトウェアは他にも存在します。</p>
+            <ul>
+              <li><a class="ex-ref" href="http://atelibet.s11.xrea.com/side_yuu/tool/">ExtractData</a> -- ゲーム向けアーカイブ展開ツール、GPL。</li>
+              <li><a class="ex-ref" href="http://jnc.s21.xrea.com/dcut/">DataCutter</a> -- PNG/OGG/WMV/WAV/AVI対応。</li>
+              <li><a class="ex-ref" href="http://hp.vector.co.jp/authors/VA018359/download.html">MAWBE他</a> -- MIDI、WAVE、BMP、JPEG、PNG、Ogg Vorbisなど。</li>
+            </ul>
+            <p>独自のアーカイブを用いたゲームなどからのファイル抽出には、対応Susieプラグインを探し、<a class="ex-ref" href="http://www2s.biglobe.ne.jp/~smas/">Linar</a>や<a class="ex-ref" href="http://www.asahi-net.or.jp/~KH4S-SMZ/spi/abc/">AtoB Converter</a>で使う方が幸せになれそうです。</p>
+          </div>
+        </div>
+        <div class="section" id="thanks_">
+          <h2>謝辞</h2>
+          <div class="content">
+            <p>怠け者に力を分けてくださる方々には足を向けて寝られません。</p>
+            <ul>
+              <li>開発言語HSPと関連モジュールの作者</li>
+              <li>開発のキッカケになった超人ゲッターの作者</li>
+              <li>同様の素晴らしいソフトウェアの作者</li>
+              <li>フリーのアイコンやリソースエディタの作者</li>
+              <li>その他、細かいものを上げればキリがない</li>
+            </ul>
+            <p>発掘の際に検索したら、ひっそりと使ってくださっている方々がいるようで、うれしくなりました。そういった方々がいなければ、おそらく小綺麗なインタフェースで作り直されることはなかったでしょう。</p>
+          </div>
+        </div>
+        <div class="section" id="history_">
+          <h2>更新履歴</h2>
+          <div class="content">
+            <ul>
+              <li>2007-07-21
+              <ul>
+                <li>ドキュメントの新調</li>
+                <li>ソース紛失につき、本体完全作り直し</li>
+                <li>サイズは気にせずに、VC8でDLLをリビルド</li>
+                <li>ソースコードを同梱、いいとこあればパクれ</li>
+              </ul>
+              </li>
+              <li>2005-01-09
+              <ul>
+                <li>isformプラグイン追加と微調整</li>
+              </ul>
+              </li>
+              <li>2004-01-17
+              <ul>
+                <li>初版</li>
+              </ul>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="section" id="navigation">
+        <h2>ナビゲーション</h2>
+        <div class="content">
+          <div class="section">
+            <h3>連絡先</h3>
+            <div class="content">
+              <ul>
+                <li><a class="ex-ref" href="http://gocha.s151.xrea.com/">gochaism</a></li>
+                <li><a class="ex-ref" href="http://d.hatena.ne.jp/GOCHA/">悟茶辞苑</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="section">
+            <h3>リンク</h3>
+            <div class="content">
+              <ul>
+                <li><a class="ex-ref" href="http://www.onionsoft.net/hsp/">HSP オフィシャルホームページ</a></li>
+                <li><a class="ex-ref" href="http://www.setsuki.com/hsp/">むしゃぺらりのHSPページ</a></li>
+                <li><a class="ex-ref" href="http://atelibet.s11.xrea.com/side_yuu/">Aurora Wall</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <address>Presented by gocha</address>
+    </div>
+  </body>
+</html>

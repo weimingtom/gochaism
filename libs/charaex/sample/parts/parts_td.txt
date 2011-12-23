@@ -1,0 +1,16 @@
+accessory_front
+eye
+face_front
+hair_front_accessory
+hair_front
+face_back
+accessory_middle_front
+head
+accessory_middle_back
+body_front_color
+body_front
+accessory_underwear
+body_back
+hair_back_accessory
+hair_back
+accessory_back
