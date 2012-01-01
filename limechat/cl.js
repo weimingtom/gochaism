@@ -15,7 +15,7 @@
  * で計算が可能です。
  * 
  * @author  gocha
- * @version 2011-12-23
+ * @version 2012-01-01
  */
 
 var scriptName = "cl";
@@ -38,10 +38,10 @@ function privmsg(target, text)
 
 function textOut(target, text)
 {
-    if (target == "#tasvideos") // FIXME: poor hack
+    //if (target == "#tasvideos") // FIXME: poor hack
         privmsg(target, text);
-    else
-        send(target, text);
+    //else
+    //    send(target, text);
 }
 
 function errorOut(target, text)
@@ -224,17 +224,33 @@ function cl(prefix, target, formula, lang)
                 calcResult = eval("(" + xmlhttp.responseText + ")");
                 if (calcResult.error == "")
                 {
-                    result = "" + calcResult.lhs + " = " + calcResult.rhs;
+                    var lhs = decodeCalcResult(calcResult.lhs);
+                    var rhs = decodeCalcResult(calcResult.rhs);
+                    result = "" + lhs + " = " + rhs;
                 }
                 else
                 {
-                    if (lang == "ja")
+                    if (!formula.match(/[=＝]$/))
                     {
-                        result = "cl: エラー[" + calcResult.error + "] 計算できないよう(*っ○<)";
+                        formula += ' =';
+                        // send request again (to solve SEVEN-ELEVEn problem)
+                        xmlhttp.setTimeouts(5*1000, 5*1000, 15*1000, 15*1000);
+                        xmlhttp.open("GET", 'http://www.google.com/ig/calculator?hl=' + lang + '&ie=utf-8&oe=utf-8&q=' + encodeURIComponent(formula) , true);
+                        xmlhttp.setRequestHeader('User-Agent', 'Mozilla/5.0 (compatible; limechat)');
+                        xmlhttp.setRequestHeader('X-Request-Source', 'XMLHttpRequest');
+                        xmlhttp.send('');
+                        break;
                     }
                     else
                     {
-                        result = "cl: unable to calc the formula; error (" + calcResult.error + ")";
+                        if (lang == "ja")
+                        {
+                            result = "cl: エラー 計算できないよう(*っ○<) (" + calcResult.error + ")";
+                        }
+                        else
+                        {
+                            result = "cl: unable to calc the formula; error (" + calcResult.error + ")";
+                        }
                     }
                 }
             }
@@ -248,6 +264,16 @@ function cl(prefix, target, formula, lang)
     xmlhttp.setRequestHeader('User-Agent', 'Mozilla/5.0 (compatible; limechat)');
     xmlhttp.setRequestHeader('X-Request-Source', 'XMLHttpRequest');
     xmlhttp.send('');
+}
+
+function decodeCalcResult(result)
+{
+    result = decodeEntities(result);
+    result = result.replace(/\xa0/g, ' ');
+    result = result.replace(/<sup>(.*?)<\/sup>/g, '^$1');
+    result = result.replace(/&times;/g, 'x');
+    result = result.replace(/<.*?>/g, '');
+    return result;
 }
 
 //-- [ entry point ] -----------------------------------------------------------
@@ -268,12 +294,12 @@ function onTextPost(prefix, target, text)
     if (!chList[target.toLowerCase()])
         return;
 
-    //if (text.match(/^\.cl\s+(.*)/)) {
-    //    if (target == '#TASers' || target == '#みすたぁのへや:*.jp' || target == '#gochabotdebug' || target == '#testoekaki') // FIXME: poor hack
-    //        cl(prefix, target, RegExp.$1, 'ja');
-    //    else
-    //        cl(prefix, target, RegExp.$1, 'en');
-    //}
+    if (text.match(/^\.cl\s+(.*)/)) {
+        if (target == '#TASers') // FIXME: poor hack
+            cl(prefix, target, RegExp.$1, 'ja');
+        else
+            cl(prefix, target, RegExp.$1, 'en');
+    }
 }
 
 function event::onChannelText(prefix, channel, text)
