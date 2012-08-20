@@ -242,16 +242,20 @@ function urldetail(prefix, target, url)
                 var isPlainText = mime.match(/text\/plain/i);
                 var getCharsetHTTP = new RegExp('charset=([^ \t\n;]+)',"i");
                 var getCharsetXML = new RegExp('<\?xml[^>]+encoding="([^"]+)"',"i");
-                var getMetaCharsetHTML = new RegExp('(<meta[^>]*?http-equiv="?content-type"?[^>]*>)',"i");
+                var getMetaHTTPCharsetHTML = new RegExp('(<meta[^>]*?http-equiv="?content-type"?[^>]*>)',"i");
+                var getMetaCharsetHTML = new RegExp('<meta[^>]*?charset="?([^">]*)"?[^>]*>',"i");
                 var getCharsetHTMLFromMeta = new RegExp('charset="?([^ \t\n"]+)',"i");
                 var microstorage = url.match(/^http:\/\/(?:dehacked\.2y\.net)\/microstorage\.php\/info\/.+/);
 
                 if (isHTML && xmlhttp.responseText.match(getCharsetXML))
                     charset = RegExp.$1;
-                else if (isHTML && xmlhttp.responseText.match(getMetaCharsetHTML)) {
+                else if (isHTML && xmlhttp.responseText.match(getMetaHTTPCharsetHTML)) {
                     var metaContentType = RegExp.$1;
                     if (metaContentType.match(getCharsetHTMLFromMeta))
                         charset = RegExp.$1;
+                }
+                else if (isHTML && xmlhttp.responseText.match(getMetaCharsetHTML)) {
+                    charset = RegExp.$1;
                 }
                 else if (contentType.match(getCharsetHTTP)) {
                     var getCharsetHTML = new RegExp('<meta[ \t\n]+http-equiv="?content-type"?',"i");
