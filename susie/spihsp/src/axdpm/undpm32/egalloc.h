@@ -1,11 +1,5 @@
 /*--------------------------------------------------------------------------
-  egalloc.h     EASY MEMORY ALLOCATION
-                written by gocha <http://gocha.s151.xrea.com>
-                all rights NOT reserved, feel free to redistribute ;)
-
-  言語:         日本語 (Japanese)
-  最終更新:     2004 年 10 月 10 日
-  複製・改変:   自由に行ってかまいません。
+  egalloc.h     memory allocation functions for Windows
 --------------------------------------------------------------------------*/
 
 #ifndef __EGALLOC_H__

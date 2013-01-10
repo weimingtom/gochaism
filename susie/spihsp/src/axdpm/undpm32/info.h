@@ -1,11 +1,5 @@
 /*--------------------------------------------------------------------------
-  info.h        UNDPM32.DLL INFORMATION
-                written by gocha <http://gocha.s151.xrea.com>
-                all rights NOT reserved, feel free to redistribute ;)
-
-  言語:         日本語 (Japanese)
-  最終更新:     2004 年 10 月 14 日
-  複製・改変:   自由に行ってかまいません。
+  info.h        UNDPM32.DLL info functions
 --------------------------------------------------------------------------*/
 
 #ifndef __UNDPM32_INFO_H__

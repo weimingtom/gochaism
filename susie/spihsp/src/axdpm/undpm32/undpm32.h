@@ -1,13 +1,5 @@
 /*--------------------------------------------------------------------------
-  undpm32.h     UNDPM32.DLL HEADER
-                written by gocha <http://gocha.s151.xrea.com>
-                all rights NOT reserved, feel free to redistribute ;)
-
-  言語:         日本語 (Japanese)
-  最終更新:     2004 年 10 月 14 日
-  複製・改変:   自由に行ってかまいません。
-
-  目的:         UNDPM32.DLL を使用するための宣言群です。
+  undpm32.h     UNDPM32.DLL header file
 --------------------------------------------------------------------------*/
 
 #ifndef __UNDPM32_H__

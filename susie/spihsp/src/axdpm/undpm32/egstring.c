@@ -1,13 +1,5 @@
 /*--------------------------------------------------------------------------
-  egstring.c    EASY STRING ROUTINE
-                written by gocha <http://gocha.s151.xrea.com>
-                all rights NOT reserved, feel free to redistribute ;)
-
-  言語:         日本語 (Japanese)
-  最終更新:     2004 年 10 月 12 日
-  複製・改変:   自由に行ってかまいません。
-
-  目的:         各種文字列操作ルーチンを提供します。
+  egstring.c    string functions
 --------------------------------------------------------------------------*/
 
 #include <windows.h>

@@ -1,14 +1,5 @@
 /*--------------------------------------------------------------------------
-  egcnvstr.c    EASY CONVERT STRING A/W
-                written by gocha <http://gocha.s151.xrea.com>
-                all rights NOT reserved, feel free to redistribute ;)
-
-  言語:         日本語 (Japanese)
-  最終更新:     2004 年 10 月 10 日
-  複製・改変:   自由に行ってかまいません。
-
-  目的:         ANSI 文字列と Unicode 文字列の変換を汎用的に行う機能を提供
-                します。変換のためのバッファは関数側が提供します。
+  egcnvstr.c    string converter between multibyte string and wide string
 --------------------------------------------------------------------------*/
 
 #include <windows.h>

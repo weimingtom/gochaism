@@ -1,14 +1,5 @@
 /*--------------------------------------------------------------------------
-  egalloc.c     EASY MEMORY ALLOCATION
-                written by gocha <http://gocha.s151.xrea.com>
-                all rights NOT reserved, feel free to redistribute ;)
-
-  言語:         日本語 (Japanese)
-  最終更新:     2004 年 10 月 10 日
-  複製・改変:   自由に行ってかまいません。
-
-  目的:         動的なメモリの割り当てを汎用的に行う機能を提供します。
-                C 言語のメモリブロック割り当て関数との親和性が高いです。
+  egalloc.c     memory allocation functions for Windows
 --------------------------------------------------------------------------*/
 
 #include <windows.h>
