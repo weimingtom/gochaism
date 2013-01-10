@@ -21,8 +21,13 @@
 /*--------------------------------------------------------------------------
   定数宣言
 --------------------------------------------------------------------------*/
+#ifdef HSP33_SUPPORT
+#define CRYPT_DPM_PRM1          (BYTE)0x5a
+#define CRYPT_DPM_PRM2          (BYTE)0xa5
+#else
 #define CRYPT_DPM_PRM1          (BYTE)0x55
 #define CRYPT_DPM_PRM2          (BYTE)0xaa
+#endif
 
 #define CRYPT_EXE_PRM1          3
 #define CRYPT_EXE_PRM2          5
@@ -39,7 +44,8 @@
                     LPVOID lpDest,      // コピー先バッファ
                     LPCVOID lpSrc,      // コピー元バッファ
                     DWORD dwSize,       // コピーするサイズ
-                    DWORD dwDpmFileKey  // 暗号鍵
+                    DWORD dwDpmFileKey, // 暗号鍵
+                    BYTE byDecodeSeed   // 復号バイト初期値
                 );
 
   パラメータ:   lpDest
@@ -54,33 +60,45 @@
                 dwDpmFileKey
                     暗号鍵を指定します。
 
+                byDecodeSeed
+                    復号バイトの初期値を指定します。
+                    過去のバージョンでは必ず0でしたが、
+                    HSP3.3以降では、前の格納ファイルに依存します。
+
   戻り値:       lpDest が返ります。
 
   解説:         暗号化されたバッファを復号化します。
                 外部 DPM ファイル以外のものはそのままでは復号化できません。
                 予め dwDpmFileKey を算出しておくことで復号化できます。
 --------------------------------------------------------------------------*/
-LPVOID UnDpmDecrypt(LPVOID lpDest, LPCVOID lpSrc, DWORD dwSize, DWORD dwDpmFileKey)
+LPVOID UnDpmDecrypt(LPVOID lpDest, LPCVOID lpSrc, DWORD dwSize, DWORD dwDpmFileKey, BYTE byDecodeSeed)
 {
   const WORD wCryptKey = UnDpmMakeCryptKey(UnDpmMakeDpmKey(dwDpmFileKey), 0, FALSE);
   const BYTE byCryptKey1 = LOBYTE(wCryptKey);
   const BYTE byCryptKey2 = HIBYTE(wCryptKey);
 
-  DWORD i;            // 制御変数
-  BYTE byData = 0x00; // 書き込みデータ
+  DWORD i;                      // 制御変数
+  BYTE byData = byDecodeSeed;   // 書き込みデータ
 
   // 暗号化されているか
   if(dwDpmFileKey == CRYPT_DPMFILE_KEY_NOCRYPT)
   {
     // コピー
-    memcpy(lpDest, lpSrc, dwSize);
+    if (lpDest != lpSrc)
+    {
+      memcpy(lpDest, lpSrc, dwSize);
+    }
   }
   else
   {
     // 復号化
     for(i = 0; i < dwSize; i++)
     {
+#ifdef HSP33_SUPPORT
+      byData += (BYTE)((*((LPBYTE)lpSrc + i) ^ byCryptKey1) - byCryptKey2);
+#else
       byData += (BYTE)((*((LPBYTE)lpSrc + i) - byCryptKey2) ^ byCryptKey1);
+#endif
       *((LPBYTE)lpDest + i) = byData;
     }
   }

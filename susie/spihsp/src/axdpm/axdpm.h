@@ -26,7 +26,11 @@ static const char *pluginfo[] = {
 #else
   "*.dpm",                          /* 代表的な拡張子 ("*.JPG" "*.RGB;*.Q0" など) */
 #endif
-  "Hot Soup Processor DPM",         /* ファイル形式名 */
+#ifdef HSP33_SUPPORT
+  "Hot Soup Processor DPM (3.3+)",  /* ファイル形式名 */
+#else
+  "Hot Soup Processor DPM (2.6+)",  /* ファイル形式名 */
+#endif
 };
 
 // ヘッダチェック等に必要なサイズ.2KB以内で

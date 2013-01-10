@@ -17,6 +17,10 @@
 /*--------------------------------------------------------------------------
   型宣言
 --------------------------------------------------------------------------*/
+
+// アライメントを 1 バイトに
+#pragma pack(push, 1)
+
 typedef struct tagDPMHED {
   BYTE sSignature[4];     // シグネチャ
   DWORD dwOffsetToDS;     // データセクションへのオフセット
@@ -31,17 +35,6 @@ typedef struct tagDPMFILEDIR {
   DWORD dwOffsetInDS;     // データへのオフセット
   DWORD dwFileSize;       // データサイズ
 } DPMFILEDIR, *LPDPMFILEDIR;
-
-/*
-  HSPHED はデータサイズが細かいので、アライメントの問題がおきます。
-  コンパイルオプションを設定して 1 バイト境界で配置してください。
-
-  Visual C++ ならば /Zp または #pragma pack を
-  Borland 製コンパイラであれば -a- オプションを使用します。
-*/
-
-// アライメントを 1 バイトに
-#pragma pack(push, 1)
 
 typedef struct tagHSPHED {
   BYTE szSignature[9];    // シグネチャ

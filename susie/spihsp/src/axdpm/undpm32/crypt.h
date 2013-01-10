@@ -23,7 +23,7 @@
 /*--------------------------------------------------------------------------
   ä÷êîêÈåæ
 --------------------------------------------------------------------------*/
-LPVOID UnDpmDecrypt(LPVOID lpDest, LPCVOID lpSrc, DWORD dwSize, DWORD dwDpmFileKey);
+LPVOID UnDpmDecrypt(LPVOID lpDest, LPCVOID lpSrc, DWORD dwSize, DWORD dwDpmFileKey, BYTE byDecodeSeed);
 
 BOOL UnDpmAdjustCryptKey(HDPM hDpm);
 

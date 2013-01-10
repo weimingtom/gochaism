@@ -12,6 +12,7 @@
 
 #include <windows.h>
 #include <shlwapi.h>
+#pragma comment(lib, "shlwapi.lib")
 
 #include "undpm32.h"
 #include "main.h"
@@ -36,6 +37,8 @@
   関数宣言
 --------------------------------------------------------------------------*/
 static LPVOID   UnDpmGetDpmByHandle(HDPM hDpm);
+
+static LPDPMFILEDIR UnDpmGetFileDirPtr(HDPM hDpm, DWORD iFileId);
 
 static HDPM     UnDpmOpenDpmMem(LPVOID lpBuffer, DWORD dwSize);
 static HDPM     UnDpmOpenExeMem(LPVOID lpBuffer, DWORD dwSize);
@@ -227,6 +230,37 @@ UNDPMAPI HDPM UnDpmOpenArchiveMem(LPVOID lpBuffer, DWORD dwSize)
   {
     // 暗号鍵を調整
     UnDpmAdjustCryptKey(hDpm);
+#if 0
+    // アーカイブ読込時に全体を復号する
+    {
+      BYTE byDecodeSeed = 0;
+      DWORD fileCount = UnDpmGetFileCount(hDpm);
+      DWORD iFileId;
+      for (iFileId = 1; iFileId <= fileCount; iFileId++)
+      {
+      	LPDPMFILEDIR lpFileDir; // ファイル情報
+      	LPBYTE lpFileData;  // ファイルデータ部
+        DWORD dwFileSize;   // ファイルサイズ
+
+        // ファイル情報を取得
+        lpFileDir = UnDpmGetFileDirPtr(hDpm, iFileId);
+
+        // ファイル全体を復号
+        if(lpFileDir->dwCryptKey != CRYPT_DPMFILE_KEY_NOCRYPT)
+        {
+          dwFileSize = UnDpmGetOriginalSize(hDpm, iFileId);
+          if(dwFileSize > 0)
+          {
+            lpFileData = (LPBYTE)UnDpmGetDataSection(hDpm) + lpFileDir->dwOffsetInDS;
+            UnDpmDecrypt(lpFileData, lpFileData, dwFileSize, lpFileDir->dwCryptKey, byDecodeSeed);
+          }
+
+          // 暗号鍵を復号済みとしてマーク
+          lpFileDir->dwCryptKey = CRYPT_DPMFILE_KEY_NOCRYPT;
+        }
+      }
+    }
+#endif
   }
 
   // アーカイブハンドルを返す
@@ -421,7 +455,7 @@ UNDPMAPI BOOL UnDpmExtractMem(HDPM hDpm, DWORD iFileId, LPVOID lpBuffer, DWORD d
   }
 
   // メモリに解凍
-  UnDpmDecrypt(lpBuffer, (LPBYTE)UnDpmGetDataSection(hDpm) + FileDir.dwOffsetInDS, dwSize, FileDir.dwCryptKey);
+  UnDpmDecrypt(lpBuffer, (LPBYTE)UnDpmGetDataSection(hDpm) + FileDir.dwOffsetInDS, dwSize, FileDir.dwCryptKey, 0x00);
 
   // 解凍終了
   return TRUE;
@@ -507,6 +541,49 @@ BOOL UnDpmGetDpmHed(HDPM hDpm, LPDPMHED lpHed)
 --------------------------------------------------------------------------*/
 BOOL UnDpmGetFileDir(HDPM hDpm, DWORD iFileId, LPDPMFILEDIR lpFileDir)
 {
+  LPDPMFILEDIR lpFileDirSrc;  // ファイル情報ポインタ
+
+  // ファイル情報を取得
+  lpFileDirSrc = UnDpmGetFileDirPtr(hDpm, iFileId);
+  if(lpFileDirSrc == NULL)
+  {
+    return FALSE;
+  }
+
+  // ファイル情報をコピー
+  memcpy(lpFileDir, lpFileDirSrc, sizeof(DPMFILEDIR));
+
+  // 成功
+  return TRUE;
+}
+
+/*--------------------------------------------------------------------------
+  概要:         アーカイブ内ファイルの情報へのポインタを取得します。
+
+  宣言:         LPDPMFILEDIR UnDpmGetFileDirPtr(
+                    HDPM hDpm,              // アーカイブハンドル
+                    DWORD iFileId           // ファイルを表す数値
+                );
+
+  パラメータ:   hDpm
+                    アーカイブのハンドルを指定します。
+
+                iFileId
+                    ファイルを表す数値を指定します。
+
+                    UnDpmFilenameToId 関数を使ってファイル名からこの数値を
+                    取得することができます。
+
+  戻り値:       関数が成功すると、ファイル情報へのポインタが返ります。
+
+                関数が失敗すると、NULL が返ります。
+
+  解説:         アーカイブ内ファイルの情報領域へのポインタを取得します。
+                この関数は内容を書き換える際に内部的に使用されるものです。
+                情報の取得目的には UnDpmGetFileDir を使用してください。
+--------------------------------------------------------------------------*/
+static LPDPMFILEDIR UnDpmGetFileDirPtr(HDPM hDpm, DWORD iFileId)
+{
   LPDPMHED lpDpmHed;          // ヘッダ情報
   LPDPMFILEDIR lpFirstFile;   // 最初のファイル情報
 
@@ -516,17 +593,14 @@ BOOL UnDpmGetFileDir(HDPM hDpm, DWORD iFileId, LPDPMFILEDIR lpFileDir)
   // ファイル ID チェック
   if(!UnDpmIsFileId(hDpm, iFileId))
   {
-    return FALSE;
+    return NULL;
   }
 
   // 最初のファイル情報を取得
   lpFirstFile = (LPDPMFILEDIR)(lpDpmHed + 1);
 
-  // ファイル情報をコピー
-  memcpy(lpFileDir, lpFirstFile + (iFileId - 1), sizeof(DPMFILEDIR));
-
-  // 成功
-  return TRUE;
+  // ファイル情報へのポインタを返す
+  return lpFirstFile + (iFileId - 1);
 }
 
 /*--------------------------------------------------------------------------
