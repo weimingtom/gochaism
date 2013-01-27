@@ -94,6 +94,7 @@ namespace MidiSplit
         static IEnumerable<MTrkChunk> SplitMidiTrack(MTrkChunk midiTrackIn)
         {
             const int MaxChannels = 16;
+            const int MaxNotes = 128;
             int?[] currentProgramNumber = new int?[MaxChannels];
             IList<MTrkChunkWithInstrInfo> trackInfos = new List<MTrkChunkWithInstrInfo>();
             
@@ -105,6 +106,7 @@ namespace MidiSplit
             // dispatch events from beginning
             // (events must be sorted by absolute time)
             MidiFileEvent midiLastEvent = null;
+            MTrkChunk[,] tracksWithMissingNoteOff = new MTrkChunk[MaxChannels, MaxNotes];
             foreach (MidiFileEvent midiEvent in midiTrackIn.Events)
             {
                 MTrkChunk targetTrack = null;
@@ -129,42 +131,59 @@ namespace MidiSplit
                         currentProgramNumber[channelMessage.MidiChannel] = channelMessage.Parameter1;
                     }
 
-                    // search target track
-                    int trackIndex;
-                    for (trackIndex = 0; trackIndex < trackInfos.Count; trackIndex++)
+                    // the location to put expected note-off event needs to be determined by note-on location
+                    bool midiEventIsNoteOff = (channelMessage.Command == MidiChannelCommand.NoteOff ||
+                        (channelMessage.Command == MidiChannelCommand.NoteOn && channelMessage.Parameter2 == 0));
+                    if (midiEventIsNoteOff && tracksWithMissingNoteOff[channelMessage.MidiChannel, channelMessage.Parameter1] != null)
                     {
-                        MTrkChunkWithInstrInfo trackInfo = trackInfos[trackIndex];
-
-                        if (trackInfo.MidiChannel == channelMessage.MidiChannel &&
-                            (trackInfo.ProgramNumber == null ||
-                              trackInfo.ProgramNumber == currentProgramNumber[channelMessage.MidiChannel]))
-                        {
-                            // set program number (we need to set it for the first time)
-                            trackInfo.ProgramNumber = currentProgramNumber[channelMessage.MidiChannel];
-
-                            // target track is determined, exit the loop
-                            targetTrack = trackInfo.Track;
-                            break;
-                        }
-                        else if (trackInfo.MidiChannel > channelMessage.MidiChannel)
-                        {
-                            // track list is sorted by channel number
-                            // therefore, the rest isn't what we are searching for
-                            // a new track needs to be assigned to the current index
-                            break;
-                        }
+                        targetTrack = tracksWithMissingNoteOff[channelMessage.MidiChannel, channelMessage.Parameter1];
+                        tracksWithMissingNoteOff[channelMessage.MidiChannel, channelMessage.Parameter1] = null;
                     }
-
-                    // add a new track if necessary
-                    if (targetTrack == null)
+                    else
                     {
-                        MTrkChunkWithInstrInfo newTrackInfo = new MTrkChunkWithInstrInfo();
-                        newTrackInfo.Track = new MTrkChunk();
-                        newTrackInfo.Track.Events = new List<MidiFileEvent>();
-                        newTrackInfo.MidiChannel = channelMessage.MidiChannel;
-                        newTrackInfo.ProgramNumber = currentProgramNumber[channelMessage.MidiChannel];
-                        trackInfos.Insert(trackIndex, newTrackInfo);
-                        targetTrack = newTrackInfo.Track;
+                        // search target track
+                        int trackIndex;
+                        for (trackIndex = 0; trackIndex < trackInfos.Count; trackIndex++)
+                        {
+                            MTrkChunkWithInstrInfo trackInfo = trackInfos[trackIndex];
+
+                            if (trackInfo.MidiChannel == channelMessage.MidiChannel &&
+                                (trackInfo.ProgramNumber == null ||
+                                  trackInfo.ProgramNumber == currentProgramNumber[channelMessage.MidiChannel]))
+                            {
+                                // set program number (we need to set it for the first time)
+                                trackInfo.ProgramNumber = currentProgramNumber[channelMessage.MidiChannel];
+
+                                // target track is determined, exit the loop
+                                targetTrack = trackInfo.Track;
+                                break;
+                            }
+                            else if (trackInfo.MidiChannel > channelMessage.MidiChannel)
+                            {
+                                // track list is sorted by channel number
+                                // therefore, the rest isn't what we are searching for
+                                // a new track needs to be assigned to the current index
+                                break;
+                            }
+                        }
+
+                        // add a new track if necessary
+                        if (targetTrack == null)
+                        {
+                            MTrkChunkWithInstrInfo newTrackInfo = new MTrkChunkWithInstrInfo();
+                            newTrackInfo.Track = new MTrkChunk();
+                            newTrackInfo.Track.Events = new List<MidiFileEvent>();
+                            newTrackInfo.MidiChannel = channelMessage.MidiChannel;
+                            newTrackInfo.ProgramNumber = currentProgramNumber[channelMessage.MidiChannel];
+                            trackInfos.Insert(trackIndex, newTrackInfo);
+                            targetTrack = newTrackInfo.Track;
+                        }
+
+                        // remember new note, to know appropriate note-off location
+                        if (channelMessage.Command == MidiChannelCommand.NoteOn && channelMessage.Parameter2 != 0)
+                        {
+                            tracksWithMissingNoteOff[channelMessage.MidiChannel, channelMessage.Parameter1] = targetTrack;
+                        }
                     }
                 }
                 else
@@ -172,29 +191,33 @@ namespace MidiSplit
                     targetTrack = trackInfos[0].Track;
                 }
 
-                IList<MidiFileEvent> targetEventList = targetTrack.Events as IList<MidiFileEvent>;
-                targetEventList.Add(midiEvent);
+                // add event to the list, if it's not end of track
+                if (!(midiEvent.Message is MidiMetaMessage) ||
+                    (midiEvent.Message as MidiMetaMessage).MetaType != MidiMetaType.EndOfTrack)
+                {
+                    IList<MidiFileEvent> targetEventList = targetTrack.Events as IList<MidiFileEvent>;
+                    targetEventList.Add(midiEvent);
+                }
             }
 
-            // check end of track and save its location
-            long? trackEndAbsoluteTime = null;
-            if (midiLastEvent != null && midiLastEvent.Message is MidiMetaMessage &&
-                (midiLastEvent.Message as MidiMetaMessage).MetaType == MidiMetaType.EndOfTrack)
+            // determine the location of end of track
+            long absoluteTimeOfEndOfTrack = 0;
+            if (midiLastEvent != null)
             {
-                trackEndAbsoluteTime = midiLastEvent.AbsoluteTime;
+                absoluteTimeOfEndOfTrack = midiLastEvent.AbsoluteTime;
             }
 
             // construct the track list without extra info
             IList<MTrkChunk> tracks = new List<MTrkChunk>();
             foreach (MTrkChunkWithInstrInfo trackInfo in trackInfos)
             {
-                Console.WriteLine("Track for Channel " + trackInfo.MidiChannel + " Program " + trackInfo.ProgramNumber + "");
                 tracks.Add(trackInfo.Track);
             }
 
-            // fixup delta time artifically...
+            // fix some conversion problems
             foreach (MTrkChunk track in tracks)
             { 
+                // fixup delta time artifically...
                 midiLastEvent = null;
                 foreach (MidiFileEvent midiEvent in track.Events)
                 {
@@ -202,45 +225,15 @@ namespace MidiSplit
                     midiLastEvent = midiEvent;
                 }
 
-                // add missing end of track
-                if (midiLastEvent == null || !(midiLastEvent.Message is MidiMetaMessage) ||
-                    (midiLastEvent.Message as MidiMetaMessage).MetaType != MidiMetaType.EndOfTrack)
-                {
-                    long absoluteTime = midiLastEvent.AbsoluteTime;
-                    if (trackEndAbsoluteTime != null && absoluteTime < trackEndAbsoluteTime)
-                    {
-                        absoluteTime = trackEndAbsoluteTime.Value;
-                    }
-
-                    MidiFileEvent endOfTrack = new MidiFileEvent();
-                    endOfTrack.AbsoluteTime = absoluteTime;
-                    endOfTrack.DeltaTime = absoluteTime - midiLastEvent.AbsoluteTime;
-                    endOfTrack.Message = new MidiMetaMessage(MidiMetaType.EndOfTrack, new byte[] { });
-                    (track.Events as IList<MidiFileEvent>).Add(endOfTrack);
-                }
-
-                foreach (MidiFileEvent midiEvent in track.Events)
-                {    
-                    Console.WriteLine("" + midiEvent.AbsoluteTime + "\t" + midiEvent.DeltaTime + "\t" + midiEvent.Message.ToString() + "\t" +
-                        hexstring(midiEvent.Message.GetData()));
-
-                }
-
-
-                Console.WriteLine("--------------------------------------------");
+                // add end of track manually
+                MidiFileEvent endOfTrack = new MidiFileEvent();
+                endOfTrack.AbsoluteTime = absoluteTimeOfEndOfTrack;
+                endOfTrack.DeltaTime = absoluteTimeOfEndOfTrack - midiLastEvent.AbsoluteTime;
+                endOfTrack.Message = new MidiMetaMessage(MidiMetaType.EndOfTrack, new byte[] { });
+                (track.Events as IList<MidiFileEvent>).Add(endOfTrack);
             }
 
             return tracks;
-        }
-
-        private static String hexstring(byte[] b)
-        {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < b.Length; i++)
-            {
-                sb.Append(String.Format("{0,0:X2} ", b[i]));
-            }
-            return sb.ToString();
         }
 
         static MidiFileData ReadMidiFile(string filePath)
@@ -271,190 +264,16 @@ namespace MidiSplit
                 {
                     reader.SkipCurrentChunk();
 
+                    ConsoleColor prevConsoleColor = Console.ForegroundColor;
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("Failed to read track: " + (i + 1));
                     Console.WriteLine(e);
-                    Console.ForegroundColor = ConsoleColor.Gray;
+                    Console.ForegroundColor = prevConsoleColor;
                 }
             }
 
             data.Tracks = tracks;
             return data;
         }
-
-/*            IEnumerable<MidiFileEvent> notes = null;
-
-            // merge all track notes and filter out sysex and meta events
-            foreach (var track in fileData.Tracks)
-            {
-                if (notes == null)
-                {
-                    notes = from note in track.Events
-                            where !(note.Message is MidiLongMessage)
-                            select note;
-                }
-                else
-                {
-                    notes = (from note in track.Events
-                             where !(note.Message is MidiLongMessage)
-                             select note).Union(notes);
-                }
-            }
-
-            // order track notes by absolute-time.
-            notes = from note in notes
-                    orderby note.AbsoluteTime
-                    select note;
-
-            // At this point the DeltaTime properties are invalid because other events from other
-            // tracks are now merged between notes where the initial delta-time was calculated for.
-            // We fix this in the play back routine.
- */
-/*
-            WriteHeaderInfoToConsole(fileData.Header);
-
-            int trackIndex = 1;
-            foreach (MTrkChunk track in fileData.Tracks)
-            {
-                Console.WriteLine("Track " + trackIndex);
-                foreach (MidiFileEvent midiEvent in track.Events)
-                {
-                    String attribute = "?";
-                    if (midiEvent.Message is MidiShortMessage)
-                    {
-                        MidiShortMessage midiMessage = midiEvent.Message as MidiShortMessage;
-                        attribute = "S";
-                        Console.WriteLine("" + midiEvent.AbsoluteTime + "\t" + midiMessage.ByteLength + "\t" + attribute + "\t" +
-                            midiMessage.GetType() + "\t" + ToHexString(midiMessage.GetData()));
-                    }
-                    else if (midiEvent.Message is MidiLongMessage)
-                    {
-                        MidiLongMessage midiMessage = midiEvent.Message as MidiLongMessage;
-                        attribute = "L";
-                        Console.WriteLine("" + midiEvent.AbsoluteTime + "\t" + midiMessage.ByteLength + "\t" + attribute + "\t" +
-                            midiMessage.GetType() + "\t" + ToHexString(midiMessage.GetData()));
-                    }
-                }
-                trackIndex++;
-            }
-            */
-            /*
-            var caps = MidiOutPort.GetPortCapabilities(outPortId);
-            MidiOutPortBase outPort = null;
-
-            try
-            {
-                outPort = ProcessStreaming(outPortId, fileData, notes, caps);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine();
-
-                Console.WriteLine(e.ToString());
-            }
-*/
-//            Console.WriteLine("Press any key to exit...");
-//            Console.ReadKey();
-
-            /*
-            if (outPort != null)
-            {
-                outPort.Reset();
-                if (!outPort.BufferManager.WaitForBuffersReturned(1000))
-                {
-                    Console.WriteLine("Buffers failed to return in 1 sec.");
-                }
-
-                outPort.Close();
-                outPort.Dispose();
-            }
-             * */
-
-        /*
-        private static MidiOutPortBase ProcessStreaming(int outPortId, MidiFileData fileData,
-            IEnumerable<MidiFileEvent> notes, MidiOutPortCaps caps)
-        {
-            var outPort = new MidiOutStreamPort();
-            outPort.Open(outPortId);
-            outPort.BufferManager.Initialize(10, 1024);
-            outPort.TimeDivision = fileData.Header.TimeDivision;
-
-            // TODO: extract Tempo from meta messages from the file.
-            // 120 bpm (uSec/QuarterNote).
-            outPort.Tempo = 500000;
-
-            Console.WriteLine(String.Format("Midi Out Stream Port '{0}' is now open.", caps.Name));
-
-            MidiMessageOutStreamWriter writer = null;
-            MidiBufferStream buffer = null;
-            MidiFileEvent lastNote = null;
-
-            foreach (var note in notes)
-            {
-                if (writer == null)
-                {
-                    // brute force buffer aqcuirement.
-                    // when callbacks are implemented this will be more elegant.
-                    do
-                    {
-                        buffer = outPort.BufferManager.RetrieveBuffer();
-
-                        if (buffer != null) break;
-
-                        Thread.Sleep(50);
-                    } while (buffer == null);
-
-                    writer = new MidiMessageOutStreamWriter(buffer);
-                }
-
-                if (writer.CanWrite(note.Message))
-                {
-                    if (lastNote != null)
-                    {
-                        // fixup delta time artifically...
-                        writer.Write(note.Message, (int)(note.AbsoluteTime - lastNote.AbsoluteTime));
-                    }
-                    else
-                    {
-                        writer.Write(note.Message, (int)note.DeltaTime);
-                    }
-                }
-                else
-                {
-                    outPort.LongData(buffer);
-                    writer = null;
-
-                    Console.WriteLine("Buffer sent...");
-
-                    if (!outPort.HasStatus(MidiPortStatus.Started))
-                    {
-                        outPort.Restart();
-                    }
-                }
-
-                lastNote = note;
-            }
-
-            return outPort;
-        }
-         */
-
-/*        private static string ToHexString(byte[] bytes)
-        {
-            StringBuilder sb = new StringBuilder(bytes.Length * 2);
-            foreach (byte b in bytes)
-            {
-                if (b < 16) sb.Append('0');
-                sb.Append(Convert.ToString(b, 16).ToUpper() + " ");
-            }
-            return sb.ToString();
-        }
-
-        private static void WriteHeaderInfoToConsole(MThdChunk mThdChunk)
-        {
-            Console.WriteLine("Number of tracks: " + mThdChunk.NumberOfTracks);
-            Console.WriteLine("Number of format: " + mThdChunk.Format);
-            Console.WriteLine("Number of time division: " + mThdChunk.TimeDivision);
-        }*/
     }
 }
