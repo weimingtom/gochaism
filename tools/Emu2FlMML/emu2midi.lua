@@ -51,11 +51,17 @@ function VGMSoundWriter()
 		-- pitch bend amount to consider a new note
 		NOTE_PITCH_THRESHOLD = 0.25;
 
+		-- volume up amount to consider a new note
+		NOTE_VOLUME_THRESHOLD = 0.25;
+
 		-- midi note velocity value
 		NOTE_VELOCITY = 100;
 
 		-- midi pitch bend range value
 		MIDI_PITCHBEND_RANGE = 12;
+
+		-- midi volume/panpot curve on/off
+		MIDI_LINEAR_CONVERSION = false;
 
 		-- static math.round
 		-- http://lua-users.org/wiki/SimpleRound
@@ -202,10 +208,11 @@ function VGMSoundWriter()
 			if self.scoreChannel then
 				for chIndex, score in ipairs(self.scoreChannel) do
 					local channelNumber = chIndex - 1
-					table.insert(score, 1, { 'control_change', 0, channelNumber, 101, 0 })
-					table.insert(score, 2, { 'control_change', 0, channelNumber, 100, 0 })
-					table.insert(score, 3, { 'control_change', 0, channelNumber, 6, self.MIDI_PITCHBEND_RANGE })
-					table.insert(midiscore, self:scoreConvertToMidi(self:scoreBuildNote(self:scoreAddEndOfTrack(score))))
+					local mscore = self:scoreRemoveDuplicatedEvent(self:scoreConvertToMidi(self:scoreBuildNote(self:scoreAddEndOfTrack(score))))
+					table.insert(mscore, 1, { 'control_change', 0, channelNumber, 101, 0 })
+					table.insert(mscore, 2, { 'control_change', 0, channelNumber, 100, 0 })
+					table.insert(mscore, 3, { 'control_change', 0, channelNumber, 6, self.MIDI_PITCHBEND_RANGE })
+					table.insert(midiscore, mscore)
 				end
 			end
 
@@ -254,7 +261,7 @@ function VGMSoundWriter()
 			for chIndex, score in ipairs(self.scoreChannel) do
 				file:write(string.format("/* Channel %d */\n", chIndex - 1))
 
-				local modscore = self:scoreConvertToMidi(self:scoreBuildNote(self:scoreAddEndOfTrack(score)))
+				local modscore = self:scoreRemoveDuplicatedEvent(self:scoreBuildNote(self:scoreAddEndOfTrack(score)))
 				file:write(self:getScoreText(modscore))
 				file:write("\n")
 			end
@@ -286,10 +293,46 @@ function VGMSoundWriter()
 		-- @param score manipulation target
 		scoreAddEndOfTrack = function(self, scoreIn)
 			local score = {}
-			for i, event in ipairs(scoreIn) do
+			for i, eventIn in ipairs(scoreIn) do
+				local event = {}
+				for j, v in ipairs(eventIn) do
+					event[j] = v
+				end
 				table.insert(score, event)
 			end
 			table.insert(score, { 'end_track', self.tick })
+			return score
+		end;
+
+		-- score manipulation: remove duplicated events
+		-- @param score manipulation target
+		scoreRemoveDuplicatedEvent = function(self, scoreIn)
+			local score = {}
+			local prev = {}
+			for i, eventIn in ipairs(scoreIn) do
+				if eventIn[1] == 'control_change' or eventIn[1] == 'volume_change' or eventIn[1] == 'panpot_change' or eventIn[1] == 'pitch_wheel_change' or eventIn[1] == 'absolute_pitch_change' then
+					local name = eventIn[1]
+					local value = eventIn[4]
+					if name == 'control_change' then
+						name = name .. string.format("-%d", eventIn[4])
+						value = eventIn[5]
+					end
+
+					if value == prev[name] then
+						eventIn = nil
+					else
+						prev[name] = value
+					end
+				end
+
+				if eventIn ~= nil then
+					local event = {}
+					for j, v in ipairs(eventIn) do
+						event[j] = v
+					end
+					table.insert(score, event)
+				end
+			end
 			return score
 		end;
 
@@ -320,8 +363,7 @@ function VGMSoundWriter()
 					if event[1] == 'absolute_pitch_change' then
 						if noteNumber ~= nil then
 							local relPitch = event[4] - noteNumber
-							table.remove(events, i)
-							table.insert(events, i, { 'pitch_wheel_change', event[2], event[3], relPitch })
+							events[i] = { 'pitch_wheel_change', event[2], event[3], relPitch }
 						else
 							table.remove(events, i)
 						end
@@ -378,39 +420,57 @@ function VGMSoundWriter()
 				curr.midikey = new_.midikey or prev.midikey
 				curr.noteNumber = prev.noteNumber
 
+				-- note on/off detection main
+				local requireNoteOff = false
+				local requireNoteOn = false
 				if curr.volume and curr.volume ~= 0 then
 					if prev.volume and prev.volume ~= 0 then
 						local pitchDiff = math.abs(curr.midikey - prev.midikey)
+						local volumeDistance = curr.volume - prev.volume
 						if pitchDiff > 0 then
 							if pitchDiff >= self.NOTE_PITCH_THRESHOLD then
 								curr.noteNumber = self.round(curr.midikey)
 								if curr.noteNumber ~= prev.noteNumber then
 									-- new note! (frequency changed)
-									addNoteOffEvent(events, curr.tick, channelNumber, prev.noteNumber)
-									addNoteOnEvent(events, curr.tick, channelNumber, curr.noteNumber, self.NOTE_VELOCITY)
-									-- removeEvent(events, 'absolute_pitch_change')
-									prev.noteNumber = curr.noteNumber
+									requireNoteOff = true
+									requireNoteOn = true
 								end
 							end
+						end
+						if volumeDistance >= self.NOTE_VOLUME_THRESHOLD then
+							-- new note! (volume up)
+							requireNoteOff = true
+							requireNoteOn = true
 						end
 						prev.midikey = curr.midikey
 					else
 						-- new note! (from volume 0)
-						curr.noteNumber = self.round(curr.midikey)
-						addNoteOnEvent(events, curr.tick, channelNumber, curr.noteNumber, self.NOTE_VELOCITY)
-						-- removeEvent(events, 'absolute_pitch_change')
-						prev.noteNumber = curr.noteNumber
+						requireNoteOn = true
 					end
 				else
 					if prev.volume and prev.volume ~= 0 then
 						-- end of note
-						addNoteOffEvent(events, curr.tick, channelNumber, prev.noteNumber)
+						requireNoteOff = true
 						removeEvent(events, 'volume_change')
-						prev.noteNumber = nil
 					else
 						-- no sound / rest before the first note
+						removeEvent(events, 'volume_change')
 					end
 				end
+				if requireNoteOff then
+					addNoteOffEvent(events, curr.tick, channelNumber, prev.noteNumber)
+					if not requireNoteOn then
+						prev.noteNumber = nil
+					end
+					--removeEvent(events, 'volume_change')
+				end
+				if requireNoteOn then
+					curr.noteNumber = self.round(curr.midikey)
+					addNoteOnEvent(events, curr.tick, channelNumber, curr.noteNumber, self.NOTE_VELOCITY)
+					prev.noteNumber = curr.noteNumber
+				end
+
+				-- update status
 				prev.midikey = curr.midikey
 				prev.volume = curr.volume
 
@@ -427,7 +487,11 @@ function VGMSoundWriter()
 				end
 
 				-- copy the modified events to output score
-				for i, event in ipairs(events) do
+				for i, eventIn in ipairs(events) do
+					local event = {}
+					for j, v in ipairs(eventIn) do
+						event[j] = v
+					end
 					table.insert(score, event)
 				end
 
@@ -450,8 +514,10 @@ function VGMSoundWriter()
 					local value = event[4]
 					assert(value >= 0.0 and value <= 1.0)
 
-					-- gain[dB] = 40 * log10(cc7/127) 
-					value = math.sqrt(value)
+					if not self.MIDI_LINEAR_CONVERSION then
+						-- gain[dB] = 40 * log10(cc7/127) 
+						value = math.sqrt(value)
+					end
 
 					event = { 'control_change', event[2], event[3], 7, self.round(value * 127) }
 					table.insert(score, event)
@@ -459,10 +525,12 @@ function VGMSoundWriter()
 					local value = event[4]
 					assert(value >= 0.0 and value <= 1.0)
 
-					-- GM2 recommended formula:
-					-- Left Channel Gain [dB] = 20*log(cos(PI/2*max(0,cc#10-1)/126)) 
-					-- Right Channel Gain [dB] = 20*log(sin(PI/2*max(0,cc#10-1)/126))
 					-- TODO: decent panpot curve
+					if not self.MIDI_LINEAR_CONVERSION then
+						-- GM2 recommended formula:
+						-- Left Channel Gain [dB] = 20*log(cos(PI/2*max(0,cc#10-1)/126)) 
+						-- Right Channel Gain [dB] = 20*log(sin(PI/2*max(0,cc#10-1)/126))
+					end
 
 					event = { 'control_change', event[2], event[3], 10, self.round(value * 126) + 1 }
 					table.insert(score, event)
@@ -475,6 +543,9 @@ function VGMSoundWriter()
 					end
 
 					event = { 'pitch_wheel_change', event[2], event[3], math.min(self.round(value / self.MIDI_PITCHBEND_RANGE * 8192), 8191) }
+					table.insert(score, event)
+				elseif event[1] == 'note_off' then
+					event = { 'note_on', event[2], event[3], event[4], 0 }
 					table.insert(score, event)
 				elseif event[1] == 'absolute_pitch_change' then
 					error("'absolute_pitch_change' need to be converted before scoreConvertToMidi.")
