@@ -49,7 +49,10 @@ function VGMSoundWriter()
 		scoreGlobal = {};
 
 		-- pitch bend amount to consider a new note
-		NOTE_PITCH_THRESHOLD = 0.25;
+		NOTE_PITCH_THRESHOLD = 0.68;
+
+		-- pitch bend amount to detect unwanted "small pitch change" with a new note
+		NOTE_PITCH_STRIP_THRESHOLD = 0.0;
 
 		-- volume up amount to consider a new note
 		NOTE_VOLUME_THRESHOLD = 0.25;
@@ -136,7 +139,7 @@ function VGMSoundWriter()
 					-- search in waveform table
 					if self.waveformList[curr.type] ~= nil then
 						for waveformIndex, waveform in ipairs(self.waveformList[curr.type]) do
-							if patch == waveform then
+							if curr.patch == waveform then
 								patchNumber = waveformIndex - 1
 								break
 							end
@@ -356,6 +359,20 @@ function VGMSoundWriter()
 					end
 				end
 			end
+			-- replace specified event value
+			local replaceEventValue = function(events, eventName, value)
+				for i = #events, 1, -1 do
+					local eventIn = events[i]
+					if eventIn[1] == eventName then
+						local event = {}
+						for j, v in ipairs(eventIn) do
+							event[j] = v
+						end
+						event[4] = value
+						events[i] = event
+					end
+				end
+			end
 			-- convert pitch bend absolute to relative
 			local pitchAbsToRel = function(events, noteNumber)
 				for i = #events, 1, -1 do
@@ -434,6 +451,12 @@ function VGMSoundWriter()
 									-- new note! (frequency changed)
 									requireNoteOff = true
 									requireNoteOn = true
+
+									-- pitch bend remove hack
+									if (curr.midikey - curr.noteNumber) < self.NOTE_PITCH_STRIP_THRESHOLD then
+										-- set pitch=0, duplication remover will clean up them :)
+										replaceEventValue(events, 'absolute_pitch_change', curr.noteNumber)
+									end
 								end
 							end
 						end
