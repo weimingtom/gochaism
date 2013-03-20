@@ -27,8 +27,6 @@ function VGMSoundWriter()
 		};
 		]]
 
-		FLMML_TPQN = 96;
-
 		-- function table for derived class
 		-- IMPORTANT NOTE: multiple inheritance is not allowed
 		base = {};
@@ -65,6 +63,9 @@ function VGMSoundWriter()
 
 		-- midi volume/panpot curve on/off
 		MIDI_LINEAR_CONVERSION = false;
+
+		-- flmml timebase
+		FLMML_TPQN = 96;
 
 		-- static math.round
 		-- http://lua-users.org/wiki/SimpleRound
@@ -186,10 +187,175 @@ function VGMSoundWriter()
 			self.tick = self.tick + 1
 		end;
 
+		-- get FlMML patch command
+		-- @param string patch type (wavememory, dpcm, etc.)
+		-- @param number patch number
+		-- @return string patch mml text
+		getFlMMLPatchCmd = function(self, patchType, patchNumber)
+			return string.format("/*%s:@%d*/", patchType, patchNumber)
+		end;
+
+		-- get FlMML waveform definition MML
+		-- @return string waveform define mml
+		getFlMMLWaveformDef = function(self)
+			local mml = ""
+			for waveChannelType, waveList in pairs(self.waveformList) do
+				for waveIndex, waveValue in ipairs(waveList) do
+					mml = mml .. string.format("/* %s-%d=%s */\n", waveChannelType, waveIndex - 1, waveValue)
+				end
+			end
+			return mml
+		end;
+
+		-- get FlMML tuning for each patches
+		-- @param string patchType patch type (square, noise, etc.)
+		-- @return number tuning amount (semitones)
+		getFlMMLPatchTuning = function(self, patchType)
+			return 0
+		end;
+
 		-- get FlMML text
 		-- @return string FlMML text
 		getFlMML = function(self)
-			return "/* NYI */"
+			local MML_TICK_MUL = 1
+			local getOctaveAndScale = function(midikey)
+				if midikey == nil then
+					return nil, nil
+				end
+
+				local oct = math.floor(midikey / 12)
+				local scale = midikey % 12
+				return oct, scale
+			end
+			local keyToMML = function(midikey)
+				local oct, scale = getOctaveAndScale(midikey)
+				local notetable = { "c", "c+", "d", "d+", "e", "f", "f+", "g", "g+", "a", "a+", "b" }
+				return string.format("o%d", oct), notetable[1 + scale]
+			end
+			local tickToMML = function(tick)
+				return string.format("%%%d", tick * MML_TICK_MUL)
+			end
+
+			local scores = self:getFlMMLScore()
+			local mml = ""
+			for scoreIndex, score in ipairs(scores) do
+				local mmlArray = {}
+				local noteInfo = nil
+				local prev = { tick = 0, slurEventIndex = nil }
+				for eventIndex, event in ipairs(score) do
+					local eventName = event[1]
+					local tick = event[2]
+					local tickDiff = tick - prev.tick
+
+					-- delta time
+					assert(tickDiff >= 0)
+					if tickDiff ~= 0 then
+						local tickMML = tickToMML(tickDiff)
+						if noteInfo then
+							table.insert(mmlArray, string.format("%s%s", noteInfo.noteMML, tickMML))
+							table.insert(mmlArray, "&")
+							prev.slurEventIndex = #mmlArray
+						else
+							-- eliminate slur
+							if prev.slurEventIndex then
+								mmlArray[prev.slurEventIndex] = ""
+								prev.slurEventIndex = nil
+							end
+							table.insert(mmlArray, string.format("r%s", tickMML))
+						end
+
+--						prev.tickChangeEventIndex = #mmlArray + 1
+--						prev.tickHasNote = false
+					end
+					prev.tick = tick
+
+					if eventName == 'end_track' then
+						-- do nothing
+					elseif eventName == 'set_tempo' then
+						-- 1 tick := (1/framerate)[sec]
+						local framerate = 60000000.0 / event[3]
+						local mmlBPM = MML_TICK_MUL * 60 * framerate / self.FLMML_TPQN
+						table.insert(mmlArray, string.format("T%.2f", mmlBPM))
+					elseif eventName == 'volume_change' then
+						table.insert(mmlArray, string.format("@X%d", event[4]))
+					elseif eventName == 'panpot_change' then
+						table.insert(mmlArray, string.format("@P%d", event[4]))
+					elseif eventName == 'pitch_wheel_change' then
+						table.insert(mmlArray, string.format("@D%d", event[4]))
+					elseif eventName == 'patch_change' then
+						table.insert(mmlArray, self:getFlMMLPatchCmd(event[5], event[4]))
+					elseif eventName == 'note_on' and event[5] ~= 0 then
+						-- assert: next event has different tick, no events left at this time
+						if eventIndex >= #score or tick >= score[eventIndex + 1][2] then
+							error("FlMML conversion: unsupported event order, note on must be last.")
+						end
+						local nextTick = score[eventIndex + 1][2]
+
+						-- register note info
+						local oct, scale = getOctaveAndScale(event[4])
+						local octMML, noteMML = keyToMML(event[4])
+						noteInfo = { tick = event[2], midikey = event[4], velocity = event[5], octMML = octMML, noteMML = noteMML }
+						-- omit octave command
+						if oct == prev.oct then
+							octMML = ""
+						end
+
+						-- write note command
+						local noteTickDiff = nextTick - tick
+						table.insert(mmlArray, string.format("%s%s%s", octMML, noteMML, tickToMML(noteTickDiff)))
+						table.insert(mmlArray, "&")
+						prev.slurEventIndex = #mmlArray
+						prev.tick = nextTick -- cancel next tick diff event
+
+--						local octMML, noteMML = keyToMML(event[4])
+--						noteInfo = { index = #mmlArray + 1, tick = event[2], tickTie = event[2], midikey = event[4], velocity = event[5], octMML = octMML, noteMML = noteMML }
+--						prev.tickHasNote = true
+					elseif eventName == 'note_off' or (eventName == 'note_on' and event[5] == 0) then
+--						table.insert(mmlArray, noteInfo.index, noteInfo.octMML .. noteInfo.noteMML .. tickToMML(tick - noteInfo.tickTie))
+						noteInfo = nil
+					else
+						--table.insert(mmlArray, "\n/* " .. event[1] .. " */\n")
+						print(string.format("FlMML conversion: unsupported event '%s'", event[1]))
+					end
+				end
+				table.insert(mmlArray, ";\n")
+
+				-- close note tie
+				if prev.slurEventIndex then
+					mmlArray[prev.slurEventIndex] = ""
+					prev.slurEventIndex = nil
+				end
+
+				-- mml join
+				mml = mml .. "@E1,0,0,180,0"
+				for mmlPartIndex, mmlPart in ipairs(mmlArray) do
+					mml = mml .. mmlPart
+				end
+			end
+			mml = mml .. self:getFlMMLWaveformDef()
+			return mml
+		end;
+
+		-- get score for FlMML conversion
+		-- @return string score array
+		getFlMMLScore = function(self)
+			local mmlscore = {}
+
+			-- global events
+			if self.scoreGlobal then
+				table.insert(mmlscore, self:scoreAddEndOfTrack(self.scoreGlobal))
+			end
+
+			-- channel events
+			if self.scoreChannel then
+				for chIndex, score in ipairs(self.scoreChannel) do
+					local channelNumber = chIndex - 1
+					local mscore = self:scoreRemoveDuplicatedEvent(self:scoreConvertToFlMML(self:scoreBuildNote(self:scoreAddEndOfTrack(score))))
+					table.insert(mmlscore, mscore)
+				end
+			end
+
+			return mmlscore
 		end;
 
 		-- get MIDI TPQN (integer)
@@ -359,19 +525,55 @@ function VGMSoundWriter()
 					end
 				end
 			end
-			-- replace specified event value
-			local replaceEventValue = function(events, eventName, value)
+			-- find event by name
+			-- @return number event index, nil if not found
+			local findEventByName = function(events, eventName)
 				for i = #events, 1, -1 do
 					local eventIn = events[i]
 					if eventIn[1] == eventName then
-						local event = {}
-						for j, v in ipairs(eventIn) do
-							event[j] = v
-						end
-						event[4] = value
-						events[i] = event
+						return i
 					end
 				end
+				return nil
+			end
+			-- replace specified event value
+			local replaceEventValue = function(events, eventName, value)
+				local eventIndex = findEventByName(events, eventName)
+				if eventIndex then
+					local eventIn = events[eventIndex]
+					local event = {}
+					for j, v in ipairs(eventIn) do
+						event[j] = v
+					end
+					event[4] = value
+					events[eventIndex] = event
+				end
+			end
+			-- add absolute pitch event to note, if there is not
+			local addPitchToNoteIfNeeded = function(events, absPitchEvent)
+				if absPitchEvent == nil then
+					return
+				end
+				assert(absPitchEvent[1] == 'absolute_pitch_change')
+
+				-- if pitch event already exists, do not add more
+				local eventIndex = findEventByName(events, 'absolute_pitch_change')
+				if eventIndex then
+					return
+				end
+
+				-- position needs to be before note on
+				eventIndex = findEventByName(events, 'note_on')
+				if eventIndex == nil then
+					eventIndex = #events + 1
+				end
+
+				-- insert event
+				local event = {}
+				for j, v in ipairs(absPitchEvent) do
+					event[j] = v
+				end
+				table.insert(events, eventIndex, event)
 			end
 			-- convert pitch bend absolute to relative
 			local pitchAbsToRel = function(events, noteNumber)
@@ -392,6 +594,7 @@ function VGMSoundWriter()
 			local eventIndex = 1
 			local prev = { tick = 0 }
 			local channelNumber = nil
+			local lastAbsPitchEvent = nil
 			while eventIndex <= #scoreIn do
 				local curr = {}
 				local new_ = {}
@@ -424,6 +627,7 @@ function VGMSoundWriter()
 						elseif event[1] == 'absolute_pitch_change' then
 							if new_.midikey == nil then
 								new_.midikey = event[4]
+								lastAbsPitchEvent = { unpack(event) }
 							else
 								table.remove(events, i)
 							end
@@ -446,8 +650,8 @@ function VGMSoundWriter()
 						local volumeDistance = curr.volume - prev.volume
 						if pitchDiff > 0 then
 							if pitchDiff >= self.NOTE_PITCH_THRESHOLD then
-								curr.noteNumber = self.round(curr.midikey)
-								if curr.noteNumber ~= prev.noteNumber then
+								local nextNoteNumber = self.round(curr.midikey)
+								if nextNoteNumber ~= prev.noteNumber then
 									-- new note! (frequency changed)
 									requireNoteOff = true
 									requireNoteOn = true
@@ -486,10 +690,21 @@ function VGMSoundWriter()
 					addNoteOnEvent(events, curr.tick, channelNumber, curr.noteNumber, self.NOTE_VELOCITY)
 					prev.noteNumber = curr.noteNumber
 
+					-- add possibly missing relative pitch event
+					-- we need to duplicate pitch event when the situation is like the following:
+					--   note on -> raise pitch quite slowly (note continues) -> volume down -> volume up ("new note" detected here)
+					-- at the "new note" timing, there is no pitch event, because pitch doesn't changed from the previous tick.
+					-- however, we need a new one because we will use "relative" pitch change event,
+					-- and the "base key" for the relative pitch gets changed at the new note, even though the frequency doesn't change.
+					-- anyway, we need a dirty fix here.
+					lastAbsPitchEvent[2] = curr.tick
+					addPitchToNoteIfNeeded(events, lastAbsPitchEvent)
+
 					-- pitch bend remove hack
 					if math.abs(curr.midikey - curr.noteNumber) < self.NOTE_PITCH_STRIP_THRESHOLD then
 						-- set pitch=0, duplication remover will clean up them :)
 						replaceEventValue(events, 'absolute_pitch_change', curr.noteNumber)
+						lastAbsPitchEvent[4] = curr.noteNumber
 					end
 				end
 
@@ -498,7 +713,7 @@ function VGMSoundWriter()
 				prev.volume = curr.volume
 
 				-- convert pitch bend absolute to relative
-				pitchAbsToRel(events, prev.noteNumber)
+				pitchAbsToRel(events, curr.noteNumber)
 
 				-- finally...
 				if eventIndex == #scoreIn then
@@ -519,6 +734,46 @@ function VGMSoundWriter()
 				end
 
 				eventIndex = eventIndex + 1
+			end
+			return score
+		end;
+
+		-- score manipulation: convert to FlMML compatible score
+		-- @param score manipulation target
+		scoreConvertToFlMML = function(self, scoreIn)
+			local score = {}
+			local patchType = nil
+			for i, event in ipairs(scoreIn) do
+				if event[1] == 'volume_change' then
+					local value = event[4]
+					assert(value >= 0.0 and value <= 1.0)
+
+					event = { 'volume_change', event[2], event[3], self.round(value * 127) }
+					table.insert(score, event)
+				elseif event[1] == 'panpot_change' then
+					local value = event[4]
+					assert(value >= 0.0 and value <= 1.0)
+
+					event = { 'panpot_change', event[2], event[3], self.round(value * 126) + 1 }
+					table.insert(score, event)
+				elseif event[1] == 'pitch_wheel_change' then
+					local value = event[4]
+					event = { 'pitch_wheel_change', event[2], event[3], self.round(100 * value) }
+					table.insert(score, event)
+				elseif event[1] == 'patch_change' then
+					patchType = event[5]
+					table.insert(score, event)
+				elseif event[1] == 'note_on' then
+					event = { 'note_on', event[2], event[3], event[4] + self:getFlMMLPatchTuning(patchType), event[5] }
+					table.insert(score, event)
+				elseif event[1] == 'note_off' then
+					event = { 'note_off', event[2], event[3], event[4] + self:getFlMMLPatchTuning(patchType), event[5] }
+					table.insert(score, event)
+				elseif event[1] == 'absolute_pitch_change' then
+					error("'absolute_pitch_change' need to be converted before scoreConvertToFlMML.")
+				else
+					table.insert(score, event)
+				end
 			end
 			return score
 		end;

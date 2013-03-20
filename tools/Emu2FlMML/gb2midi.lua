@@ -1,3 +1,4 @@
+-- Note: do not use vba-rr v24, it doesn't work on GB games. use v23 instead.
 require("emu2midi")
 
 function GBSoundWriter()
@@ -64,6 +65,60 @@ function GBSoundWriter()
 		end
 
 		error(string.format("illegal gameboy noise frequency value 0x%06x", freq))
+	end;
+
+	-- get FlMML patch command
+	-- @param string patch type (wavememory, dpcm, etc.)
+	-- @param number patch number
+	-- @return string patch mml text
+	self.getFlMMLPatchCmd = function(self, patchType, patchNumber)
+		if patchType == self.CHANNEL_TYPE.SQUARE then
+			if patchNumber >= 0 and patchNumber <= 3 then
+				local dutyTable = { 1, 2, 4, 6 }
+				return string.format("@5@W%d", dutyTable[1 + patchNumber])
+			else
+				error(string.format("Unknown patch number '%d' for '%s'", patchNumber, patchType))
+			end
+		elseif patchType == self.CHANNEL_TYPE.WAVEMEMORY then
+			return string.format("@13-%d", patchNumber)
+		elseif patchType == self.CHANNEL_TYPE.NOISE then
+			if patchNumber == self.NOISE_PATCH_NUMBER.LONG then
+				return "@11"
+			elseif patchNumber == self.NOISE_PATCH_NUMBER.SHORT then
+				return "@12"
+			else
+				error(string.format("Unknown patch number '%d' for '%s'", patchNumber, patchType))
+			end
+		else
+			error(string.format("Unknown patch type '%s'", patchType))
+		end
+	end;
+
+	-- get FlMML waveform definition MML
+	-- @return string waveform define mml
+	self.getFlMMLWaveformDef = function(self)
+		local mml = ""
+		for waveChannelType, waveList in pairs(self.waveformList) do
+			for waveIndex, waveValue in ipairs(waveList) do
+				if waveChannelType == self.CHANNEL_TYPE.SQUARE then
+					mml = mml .. string.format("#WAV13 %d,%s\n", waveIndex - 1, waveValue)
+				elseif waveChannelType == self.CHANNEL_TYPE.WAVEMEMORY then
+					mml = mml .. string.format("#WAV13 %d,%s\n", waveIndex - 1, waveValue)
+				elseif waveChannelType == self.CHANNEL_TYPE.NOISE then
+					mml = mml .. string.format("#WAV13 %d,%s\n", waveIndex - 1, waveValue)
+				else
+					error(string.format("Unknown patch type '%s'", waveChannelType))
+				end
+			end
+		end
+		return mml
+	end;
+
+	-- get FlMML tuning for each patches
+	-- @param string patchType patch type (square, noise, etc.)
+	-- @return number tuning amount (semitones)
+	self.getFlMMLPatchTuning = function(self, patchType)
+		return 0
 	end;
 
 	self:clear()
