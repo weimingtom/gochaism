@@ -1,4 +1,5 @@
 require("emu2midi")
+local base64 = require("base64") -- http://www.tecgraf.puc-rio.br/~lhf/ftp/lua/#lbase64 (visit LuaForWindows for Windows installation)
 
 function NESSoundWriter()
 	local self = VGMSoundWriter()
@@ -40,6 +41,58 @@ function NESSoundWriter()
 	-- @param source 'patch_change' event
 	self.eventPatchToMidi = function(self, event)
 		return { { 'patch_change', event[2], event[3], event[4] } }
+	end;
+
+	-- get FlMML patch command
+	-- @param string patch type (wavememory, dpcm, etc.)
+	-- @param number patch number
+	-- @return string patch mml text
+	self.getFlMMLPatchCmd = function(self, patchType, patchNumber)
+		if patchType == self.CHANNEL_TYPE.SQUARE then
+			if patchNumber >= 0 and patchNumber <= 3 then
+				local dutyTable = { 1, 2, 4, 6 }
+				return string.format("@5@W%d", dutyTable[1 + patchNumber])
+			else
+				error(string.format("Unknown patch number '%d' for '%s'", patchNumber, patchType))
+			end
+		elseif patchType == self.CHANNEL_TYPE.TRIANGLE then
+			return "@6-1"
+		elseif patchType == self.CHANNEL_TYPE.NOISE then
+			if patchNumber == self.NOISE_PATCH_NUMBER.LONG then
+				return "@7"
+			elseif patchNumber == self.NOISE_PATCH_NUMBER.SHORT then
+				return "@8"
+			else
+				error(string.format("Unknown patch number '%d' for '%s'", patchNumber, patchType))
+			end
+		elseif patchType == self.CHANNEL_TYPE.DPCM then
+			return string.format("@9-%d", patchNumber)
+		else
+			error(string.format("Unknown patch type '%s'", patchType))
+		end
+	end;
+
+	-- get FlMML waveform definition MML
+	-- @return string waveform define mml
+	self.getFlMMLWaveformDef = function(self)
+		local mml = ""
+		for waveChannelType, waveList in pairs(self.waveformList) do
+			for waveIndex, waveValue in ipairs(waveList) do
+				if waveChannelType == self.CHANNEL_TYPE.DPCM then
+					mml = mml .. string.format("#WAV9 %d,%s\n", waveIndex - 1, waveValue)
+				else
+					error(string.format("Unknown patch type '%s'", waveChannelType))
+				end
+			end
+		end
+		return mml
+	end;
+
+	-- get FlMML tuning for each patches
+	-- @param string patchType patch type (square, noise, etc.)
+	-- @return number tuning amount (semitones)
+	self.getFlMMLPatchTuning = function(self, patchType)
+		return 0
 	end;
 
 	self:clear()
@@ -89,7 +142,7 @@ emu.registerafter(function()
 	ch = snd.rp2a03.dpcm
 	ch.type = writer.CHANNEL_TYPE.DPCM
 	ch.midikey = ch.regs.frequency
-	ch.patch = string.format("%04x", ch.dmcaddress) -- TODO register waveform, not its address
+	ch.patch = string.format("%d,%d,%s", ch.dmcseed, ch.dmcloop and 1 or 0, base64.encode(memory.readbyterange(ch.dmcaddress, ch.dmcsize)))
 	table.insert(channels, ch)
 
 	writer:write(channels)
