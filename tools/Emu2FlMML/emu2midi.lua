@@ -453,7 +453,7 @@ function VGMSoundWriter()
 									requireNoteOn = true
 
 									-- pitch bend remove hack
-									if (curr.midikey - curr.noteNumber) < self.NOTE_PITCH_STRIP_THRESHOLD then
+									if math.abs(curr.midikey - curr.noteNumber) < self.NOTE_PITCH_STRIP_THRESHOLD then
 										-- set pitch=0, duplication remover will clean up them :)
 										replaceEventValue(events, 'absolute_pitch_change', curr.noteNumber)
 									end
