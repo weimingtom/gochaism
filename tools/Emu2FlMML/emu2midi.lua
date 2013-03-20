@@ -451,12 +451,6 @@ function VGMSoundWriter()
 									-- new note! (frequency changed)
 									requireNoteOff = true
 									requireNoteOn = true
-
-									-- pitch bend remove hack
-									if math.abs(curr.midikey - curr.noteNumber) < self.NOTE_PITCH_STRIP_THRESHOLD then
-										-- set pitch=0, duplication remover will clean up them :)
-										replaceEventValue(events, 'absolute_pitch_change', curr.noteNumber)
-									end
 								end
 							end
 						end
@@ -491,6 +485,12 @@ function VGMSoundWriter()
 					curr.noteNumber = self.round(curr.midikey)
 					addNoteOnEvent(events, curr.tick, channelNumber, curr.noteNumber, self.NOTE_VELOCITY)
 					prev.noteNumber = curr.noteNumber
+
+					-- pitch bend remove hack
+					if math.abs(curr.midikey - curr.noteNumber) < self.NOTE_PITCH_STRIP_THRESHOLD then
+						-- set pitch=0, duplication remover will clean up them :)
+						replaceEventValue(events, 'absolute_pitch_change', curr.noteNumber)
+					end
 				end
 
 				-- update status
