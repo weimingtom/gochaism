@@ -1,6 +1,6 @@
 require("emu2midi")
 
-function GBSoundWriter()
+function PCESoundWriter()
 	local self = VGMSoundWriter()
 
 	-- functions in base class
@@ -8,18 +8,11 @@ function GBSoundWriter()
 
 	-- channel type list
 	self.CHANNEL_TYPE = {
-		SQUARE = "square";
 		WAVEMEMORY = "wavememory";
 		NOISE = "noise";
 	};
 
-	-- pseudo patch number for noise
-	self.NOISE_PATCH_NUMBER = {
-		LONG = 0;
-		SHORT = 1;
-	};
-
-	self.FRAMERATE = 16777216 / 280896;
+	self.FRAMERATE = (21477272 + (72/99)) / 3 / 455 / 263; -- 72/99=0.7272...
 
 	-- reset current logging state
 	self.clear = function(self)
@@ -41,6 +34,14 @@ function GBSoundWriter()
 		return { { 'patch_change', event[2], event[3], event[4] } }
 	end;
 
+	-- static pceNoiseRegToFreq
+	-- @param number noise frequency register value (0-31)
+	-- @return number noise frequency [Hz]
+	self.pceNoiseRegToFreq = function(reg)
+		assert(reg >= 0 and reg <= 0x1f)
+		return 3579545.0 / reg
+	end;
+
 	-- static gbNoiseFreqToNote
 	-- @param number noise frequency register value
 	-- @return number FlMML compatible noise note number
@@ -56,71 +57,71 @@ function GBSoundWriter()
 			0x020000, 0x028000, 0x030000, 0x038000, 0x040000, 0x050000, 0x060000, 0x070000
 		}
 
-		-- search in table
+		-- search in table (search the nearest one)
+		local bestDiff = math.huge
+		local bestIndex = 1
 		for index, targetFreq in ipairs(gbNoiseLookup) do
-			if freq == targetFreq then
-				return index - 1
+			local diff = math.abs(freq - targetFreq)
+			if diff < bestDiff then
+				bestIndex = index
+				bestDiff = diff
 			end
 		end
 
-		error(string.format("illegal gameboy noise frequency value 0x%06x", freq))
+		return bestIndex - 1
+	end;
+
+	-- convert 5bit wave to 8bit wave
+	self.byte5bitTo8bit = function(bytestring)
+		if bytestring == nil then
+			return nil
+		end
+
+		local str = ""
+		assert(#bytestring == 32)
+		for i = 1, #bytestring do
+			local raw5 = string.byte(bytestring, i)
+			assert(raw5 >= 0 and raw5 <= 31)
+			local raw8 = (raw5 * 8) -- + math.floor(raw5 / 4)
+			str = str .. string.char(raw8)
+		end
+		return str
 	end;
 
 	self:clear()
 	return self
 end
 
-local writer = GBSoundWriter()
+local writer = PCESoundWriter()
 
 emu.registerafter(function()
 	local ch = {}
 	local channels = {}
 	local snd = sound.get()
 
-	ch = snd.square1
-	ch.type = writer.CHANNEL_TYPE.SQUARE
-	ch.patch = ch.duty
-	if ch.midikey == math.huge then
-		ch.midikey = 0 -- emulator bug? (found in NES Silver Surfer)
-		ch.volume = 0
+	for chIndex = 1, #snd.channel do
+		ch = snd.channel[chIndex]
+		if ch.noise then
+			ch.type = writer.CHANNEL_TYPE.NOISE
+			ch.midikey = ch.noise
+			ch.patch = 127
+		else
+			ch.type = writer.CHANNEL_TYPE.WAVEMEMORY
+			-- TODO: handle ch.dda
+			ch.patch = writer.bytestohex(writer.byte5bitTo8bit(ch.waveform))
+			if ch.midikey == math.huge then
+				ch.midikey = 0 -- emulator bug? (found in NES Silver Surfer)
+				ch.volume = 0
+			end
+		end
+		table.insert(channels, ch)
 	end
-	table.insert(channels, ch)
-
-	ch = snd.square2
-	ch.type = writer.CHANNEL_TYPE.SQUARE
-	ch.patch = ch.duty
-	if ch.midikey == math.huge then
-		ch.midikey = 0 -- emulator bug? (found in NES Silver Surfer)
-		ch.volume = 0
-	end
-	table.insert(channels, ch)
-
-	ch = snd.wavememory
-	ch.type = writer.CHANNEL_TYPE.WAVEMEMORY
-	ch.patch = writer.bytestohex(ch.waveform)
-	if ch.midikey == math.huge then
-		ch.midikey = 0 -- emulator bug? (found in NES Silver Surfer)
-		ch.volume = 0
-	end
-	table.insert(channels, ch)
-
-	ch = snd.noise
-	ch.type = writer.CHANNEL_TYPE.NOISE
-	ch.midikey = writer.gbNoiseFreqToNote(ch.regs.frequency)
-	ch.patch = (ch.short and writer.NOISE_PATCH_NUMBER.SHORT or writer.NOISE_PATCH_NUMBER.LONG)
-	table.insert(channels, ch)
 
 	writer:write(channels)
 end)
 
-_registerexit_firstrun = true
 emu.registerexit(function()
-	if _registerexit_firstrun then
-		-- vba: without this, we will get an infinite loop on error
-		_registerexit_firstrun = false
-
-		writer:writeTextFile("testVGM.txt")
-		writer:writeMidiFile("testVGM.mid")
-		writer:writeFlMMLFile("testVGM.mml")
-	end
+	writer:writeTextFile("testVGM.txt")
+	writer:writeMidiFile("testVGM.mid")
+	writer:writeFlMMLFile("testVGM.mml")
 end)
