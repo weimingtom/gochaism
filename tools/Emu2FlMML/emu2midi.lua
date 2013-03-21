@@ -508,23 +508,6 @@ function VGMSoundWriter()
 		-- score manipulation: build note from volume and pitch
 		-- @param score manipulation target
 		scoreBuildNote = function(self, scoreIn)
-			-- add note off event
-			local addNoteOffEvent = function(events, tick, channelNumber, noteNumber, lastEvent)
-				table.insert(events, lastEvent and (#events + 1) or 1, { 'note_off', tick, channelNumber, noteNumber, 0 })
-			end
-			-- add note on event
-			local addNoteOnEvent = function(events, tick, channelNumber, noteNumber, velocity)
-				table.insert(events, { 'note_on', tick, channelNumber, noteNumber, velocity })
-			end
-			-- remove specified event
-			local removeEvent = function(events, eventName)
-				for i = #events, 1, -1 do
-					local event = events[i]
-					if event[1] == eventName then
-						table.remove(events, i)
-					end
-				end
-			end
 			-- find event by name
 			-- @return number event index, nil if not found
 			local findEventByName = function(events, eventName)
@@ -535,6 +518,31 @@ function VGMSoundWriter()
 					end
 				end
 				return nil
+			end
+			-- add note off event
+			local addNoteOffEvent = function(events, tick, channelNumber, noteNumber, lastEvent)
+				local indexLast = #events + 1
+				if findEventByName(events, 'end_track') then
+					indexLast = #events
+				end
+				table.insert(events, lastEvent and indexLast or 1, { 'note_off', tick, channelNumber, noteNumber, 0 })
+			end
+			-- add note on event
+			local addNoteOnEvent = function(events, tick, channelNumber, noteNumber, velocity)
+				local indexLast = #events + 1
+				if findEventByName(events, 'end_track') then
+					indexLast = #events
+				end
+				table.insert(events, indexLast, { 'note_on', tick, channelNumber, noteNumber, velocity })
+			end
+			-- remove specified event
+			local removeEvent = function(events, eventName)
+				for i = #events, 1, -1 do
+					local event = events[i]
+					if event[1] == eventName then
+						table.remove(events, i)
+					end
+				end
 			end
 			-- replace specified event value
 			local replaceEventValue = function(events, eventName, value)
@@ -658,7 +666,7 @@ function VGMSoundWriter()
 								end
 							end
 						end
-						if volumeDistance >= self.NOTE_VOLUME_THRESHOLD then
+						if volumeDistance > 0 and volumeDistance >= self.NOTE_VOLUME_THRESHOLD then
 							-- new note! (volume up)
 							requireNoteOff = true
 							requireNoteOn = true
@@ -719,7 +727,7 @@ function VGMSoundWriter()
 				if eventIndex == #scoreIn then
 					-- add missing note off
 					if prev.noteNumber then
-						addNoteOffEvent(events, curr.tick, channelNumber, prev.noteNumber)
+						addNoteOffEvent(events, curr.tick, channelNumber, prev.noteNumber, true)
 						prev.noteNumber = nil
 					end
 				end
