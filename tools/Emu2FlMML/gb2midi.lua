@@ -42,10 +42,10 @@ function GBSoundWriter()
 		return { { 'patch_change', event[2], event[3], event[4] } }
 	end;
 
-	-- static gbNoiseFreqToNote
+	-- static gbNoiseFreqRegToNote
 	-- @param number noise frequency register value
 	-- @return number FlMML compatible noise note number
-	self.gbNoiseFreqToNote = function(freq)
+	self.gbNoiseFreqRegToNote = function(freq)
 		local gbNoiseLookup = {
 			0x000002, 0x000004, 0x000008, 0x00000c, 0x000010, 0x000014, 0x000018, 0x00001c,
 			0x000020, 0x000028, 0x000030, 0x000038, 0x000040, 0x000050, 0x000060, 0x000070,
@@ -150,7 +150,7 @@ emu.registerafter(function()
 
 	ch = snd.noise
 	ch.type = writer.CHANNEL_TYPE.NOISE
-	ch.midikey = writer.gbNoiseFreqToNote(ch.regs.frequency)
+	ch.midikey = writer.gbNoiseFreqRegToNote(ch.regs.frequency)
 	ch.patch = (ch.short and writer.NOISE_PATCH_NUMBER.SHORT or writer.NOISE_PATCH_NUMBER.LONG)
 	table.insert(channels, ch)
 

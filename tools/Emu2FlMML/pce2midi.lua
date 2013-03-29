@@ -60,7 +60,8 @@ function PCESoundWriter()
 		-- search in table (search the nearest one)
 		local bestDiff = math.huge
 		local bestIndex = 1
-		for index, targetFreq in ipairs(gbNoiseLookup) do
+		for index, targetFreqReg in ipairs(gbNoiseLookup) do
+		local targetFreq = 1048576.0 / targetFreqReg
 			local diff = math.abs(freq - targetFreq)
 			if diff < bestDiff then
 				bestIndex = index
