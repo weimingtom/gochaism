@@ -88,13 +88,6 @@ function NESSoundWriter()
 		return mml
 	end;
 
-	-- get FlMML tuning for each patches
-	-- @param string patchType patch type (square, noise, etc.)
-	-- @return number tuning amount (semitones)
-	self.getFlMMLPatchTuning = function(self, patchType)
-		return 0
-	end;
-
 	self:clear()
 	return self
 end

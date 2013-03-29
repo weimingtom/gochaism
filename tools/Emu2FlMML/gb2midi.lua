@@ -100,11 +100,7 @@ function GBSoundWriter()
 		local mml = ""
 		for waveChannelType, waveList in pairs(self.waveformList) do
 			for waveIndex, waveValue in ipairs(waveList) do
-				if waveChannelType == self.CHANNEL_TYPE.SQUARE then
-					mml = mml .. string.format("#WAV13 %d,%s\n", waveIndex - 1, waveValue)
-				elseif waveChannelType == self.CHANNEL_TYPE.WAVEMEMORY then
-					mml = mml .. string.format("#WAV13 %d,%s\n", waveIndex - 1, waveValue)
-				elseif waveChannelType == self.CHANNEL_TYPE.NOISE then
+				if waveChannelType == self.CHANNEL_TYPE.WAVEMEMORY then
 					mml = mml .. string.format("#WAV13 %d,%s\n", waveIndex - 1, waveValue)
 				else
 					error(string.format("Unknown patch type '%s'", waveChannelType))
@@ -112,13 +108,6 @@ function GBSoundWriter()
 			end
 		end
 		return mml
-	end;
-
-	-- get FlMML tuning for each patches
-	-- @param string patchType patch type (square, noise, etc.)
-	-- @return number tuning amount (semitones)
-	self.getFlMMLPatchTuning = function(self, patchType)
-		return 0
 	end;
 
 	self:clear()

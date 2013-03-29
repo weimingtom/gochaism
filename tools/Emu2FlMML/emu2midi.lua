@@ -208,10 +208,11 @@ function VGMSoundWriter()
 		end;
 
 		-- get FlMML tuning for each patches
+		-- @param number origNoteNumber input note number
 		-- @param string patchType patch type (square, noise, etc.)
-		-- @return number tuning amount (semitones)
-		getFlMMLPatchTuning = function(self, patchType)
-			return 0
+		-- @return number output note number
+		getFlMMLNoteNumber = function(self, origNoteNumber, patchType)
+			return origNoteNumber
 		end;
 
 		-- get FlMML text
@@ -772,10 +773,10 @@ function VGMSoundWriter()
 					patchType = event[5]
 					table.insert(score, event)
 				elseif event[1] == 'note_on' then
-					event = { 'note_on', event[2], event[3], event[4] + self:getFlMMLPatchTuning(patchType), event[5] }
+					event = { 'note_on', event[2], event[3], self:getFlMMLNoteNumber(event[4]), event[5] }
 					table.insert(score, event)
 				elseif event[1] == 'note_off' then
-					event = { 'note_off', event[2], event[3], event[4] + self:getFlMMLPatchTuning(patchType), event[5] }
+					event = { 'note_off', event[2], event[3], self:getFlMMLNoteNumber(event[4], patchType), event[5] }
 					table.insert(score, event)
 				elseif event[1] == 'absolute_pitch_change' then
 					error("'absolute_pitch_change' need to be converted before scoreConvertToFlMML.")

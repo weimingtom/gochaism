@@ -88,6 +88,50 @@ function PCESoundWriter()
 		return str
 	end;
 
+	-- get FlMML patch command
+	-- @param string patch type (wavememory, dpcm, etc.)
+	-- @param number patch number
+	-- @return string patch mml text
+	self.getFlMMLPatchCmd = function(self, patchType, patchNumber)
+		if patchType == self.CHANNEL_TYPE.WAVEMEMORY then
+			return string.format("@13-%d", patchNumber)
+		elseif patchType == self.CHANNEL_TYPE.NOISE then
+			return "@11"
+		else
+			error(string.format("Unknown patch type '%s'", patchType))
+		end
+	end;
+
+	-- get FlMML waveform definition MML
+	-- @return string waveform define mml
+	self.getFlMMLWaveformDef = function(self)
+		local mml = ""
+		for waveChannelType, waveList in pairs(self.waveformList) do
+			for waveIndex, waveValue in ipairs(waveList) do
+				if waveChannelType == self.CHANNEL_TYPE.WAVEMEMORY then
+					mml = mml .. string.format("#WAV13 %d,%s\n", waveIndex - 1, waveValue)
+				else
+					error(string.format("Unknown patch type '%s'", waveChannelType))
+				end
+			end
+		end
+		return mml
+	end;
+
+	-- get FlMML tuning for each patches
+	-- @param number origNoteNumber input note number
+	-- @param string patchType patch type (square, noise, etc.)
+	-- @return number output note number
+	self.getFlMMLNoteNumber = function(self, origNoteNumber, patchType)
+		if patchType == self.CHANNEL_TYPE.NOISE then
+			-- convert to gameboy noise
+			assert(origNoteNumber >= 0 and origNoteNumber <= 31)
+			return self.gbNoiseFreqToNote(1048576.0 / origNoteNumber)
+		else
+			return origNoteNumber
+		end
+	end;
+
 	self:clear()
 	return self
 end
