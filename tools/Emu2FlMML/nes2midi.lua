@@ -109,8 +109,8 @@ emu.registerafter(function()
 	ch = snd.rp2a03.square1
 	ch.type = writer.CHANNEL_TYPE.SQUARE
 	ch.patch = ch.duty
-	if ch.midikey == math.huge then
-		ch.midikey = 0 -- emulator bug? (found in NES Silver Surfer)
+	if ch.midikey == math.huge then -- freq reg = 0
+		ch.midikey = 0
 		ch.volume = 0
 	end
 	table.insert(channels, ch)
@@ -118,8 +118,8 @@ emu.registerafter(function()
 	ch = snd.rp2a03.square2
 	ch.type = writer.CHANNEL_TYPE.SQUARE
 	ch.patch = ch.duty
-	if ch.midikey == math.huge then
-		ch.midikey = 0 -- emulator bug? (found in NES Silver Surfer)
+	if ch.midikey == math.huge then -- freq reg = 0
+		ch.midikey = 0
 		ch.volume = 0
 	end
 	table.insert(channels, ch)
@@ -127,8 +127,8 @@ emu.registerafter(function()
 	ch = snd.rp2a03.triangle
 	ch.type = writer.CHANNEL_TYPE.TRIANGLE
 	ch.patch = 0
-	if ch.midikey == math.huge then
-		ch.midikey = 0 -- emulator bug? (found in NES Silver Surfer)
+	if ch.midikey == math.huge then -- freq reg = 0
+		ch.midikey = 0
 		ch.volume = 0
 	end
 	table.insert(channels, ch)

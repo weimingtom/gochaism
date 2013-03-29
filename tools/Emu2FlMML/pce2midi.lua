@@ -109,8 +109,8 @@ emu.registerafter(function()
 			ch.type = writer.CHANNEL_TYPE.WAVEMEMORY
 			-- TODO: handle ch.dda
 			ch.patch = writer.bytestohex(writer.byte5bitTo8bit(ch.waveform))
-			if ch.midikey == math.huge then
-				ch.midikey = 0 -- emulator bug? (found in NES Silver Surfer)
+			if ch.midikey == math.huge then -- freq reg = 0
+				ch.midikey = 0
 				ch.volume = 0
 			end
 		end
