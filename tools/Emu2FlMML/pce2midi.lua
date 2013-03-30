@@ -39,7 +39,7 @@ function PCESoundWriter()
 	-- @return number noise frequency [Hz]
 	self.pceNoiseRegToFreq = function(reg)
 		assert(reg >= 0 and reg <= 0x1f)
-		return 3579545.0 / reg
+		return 3579545.0 / (reg + 1)
 	end;
 
 	-- convert 5bit wave to 8bit wave
@@ -96,8 +96,7 @@ function PCESoundWriter()
 	self.getFlMMLNoteNumber = function(self, origNoteNumber, patchType)
 		if patchType == self.CHANNEL_TYPE.NOISE then
 			-- convert to gameboy noise
-			assert(origNoteNumber >= 0 and origNoteNumber <= 31)
-			return self.gbNoiseFreqToNote(1048576.0 / origNoteNumber)
+			return self.gbNoiseFreqToNote(self.pceNoiseRegToFreq(origNoteNumber))
 		else
 			return origNoteNumber
 		end
