@@ -1,5 +1,6 @@
 require("emu2midi")
 
+PCE_PSG_BASE = (21477272 + (72/99)) / 3 / 2 -- 72/99=0.7272...
 function PCESoundWriter()
 	local self = VGMSoundWriter()
 
@@ -12,7 +13,7 @@ function PCESoundWriter()
 		NOISE = "noise";
 	};
 
-	self.FRAMERATE = (21477272 + (72/99)) / 3 / 455 / 263; -- 72/99=0.7272...
+	self.FRAMERATE = PCE_PSG_BASE * 2 / 455 / 263;
 
 	-- reset current logging state
 	self.clear = function(self)
@@ -39,7 +40,11 @@ function PCESoundWriter()
 	-- @return number noise frequency [Hz]
 	self.pceNoiseRegToFreq = function(reg)
 		assert(reg >= 0 and reg <= 0x1f)
-		return 3579545.0 / (reg + 1)
+		local freqDiv = 0x1f - reg
+		if freqDiv == 0 then
+			freqDiv = 0.5
+		end
+		return PCE_PSG_BASE / 64 / freqDiv
 	end;
 
 	-- convert 5bit wave to 8bit wave

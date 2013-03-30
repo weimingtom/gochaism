@@ -773,7 +773,7 @@ function VGMSoundWriter()
 					patchType = event[5]
 					table.insert(score, event)
 				elseif event[1] == 'note_on' then
-					event = { 'note_on', event[2], event[3], self:getFlMMLNoteNumber(event[4]), event[5] }
+					event = { 'note_on', event[2], event[3], self:getFlMMLNoteNumber(event[4], patchType), event[5] }
 					table.insert(score, event)
 				elseif event[1] == 'note_off' then
 					event = { 'note_off', event[2], event[3], self:getFlMMLNoteNumber(event[4], patchType), event[5] }
@@ -887,11 +887,13 @@ function VGMSoundWriter()
 			local bestDiff = math.huge
 			local bestIndex = 1
 			for index, targetFreqReg in ipairs(flmmlGbNoiseLookup) do
-			local targetFreq = 1048576.0 / targetFreqReg
+				local targetFreq = 1048576.0 / targetFreqReg
 				local diff = math.abs(freq - targetFreq)
 				if diff < bestDiff then
 					bestIndex = index
 					bestDiff = diff
+				else
+					break
 				end
 			end
 
