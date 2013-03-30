@@ -55,6 +55,12 @@ function VGMSoundWriter()
 		-- volume up amount to consider a new note
 		NOTE_VOLUME_THRESHOLD = 0.25;
 
+		-- minimal volume (mute very small volume)
+		VOLUME_MUTE_THRESHOLD = 0.0;
+
+		-- true if ignore events during volume=0
+		STRIP_EVENT_DURING_MUTE = false;
+
 		-- midi note velocity value
 		NOTE_VELOCITY = 100;
 
@@ -132,42 +138,51 @@ function VGMSoundWriter()
 			local score = self.scoreChannel[chIndex]
 			local prev = self.lastValue[chIndex]
 			local channelNumber = chIndex - 1
-			if curr.patch ~= prev.patch then
-				local patchNumber = nil
-				if type(curr.patch) == "number" then
-					patchNumber = curr.patch
-				else
-					-- search in waveform table
-					if self.waveformList[curr.type] ~= nil then
-						for waveformIndex, waveform in ipairs(self.waveformList[curr.type]) do
-							if curr.patch == waveform then
-								patchNumber = waveformIndex - 1
-								break
-							end
-						end
+
+			local currVolume = curr.volume
+			if currVolume < self.VOLUME_MUTE_THRESHOLD then
+				currVolume = 0.0
+			end
+			if currVolume ~= prev.volume then
+				table.insert(score, { 'volume_change', self.tick, channelNumber, currVolume })
+				prev.volume = currVolume
+			end
+
+			if currVolume ~= 0.0 or not self.STRIP_EVENT_DURING_MUTE then
+				if curr.patch ~= prev.patch then
+					local patchNumber = nil
+					if type(curr.patch) == "number" then
+						patchNumber = curr.patch
 					else
-						self.waveformList[curr.type] = {}
+						-- search in waveform table
+						if self.waveformList[curr.type] ~= nil then
+							for waveformIndex, waveform in ipairs(self.waveformList[curr.type]) do
+								if curr.patch == waveform then
+									patchNumber = waveformIndex - 1
+									break
+								end
+							end
+						else
+							self.waveformList[curr.type] = {}
+						end
+						-- add new patch if needed
+						if patchNumber == nil then
+							patchNumber = #self.waveformList[curr.type]
+							self.waveformList[curr.type][patchNumber + 1] = curr.patch
+						end
 					end
-					-- add new patch if needed
-					if patchNumber == nil then
-						patchNumber = #self.waveformList[curr.type]
-						self.waveformList[curr.type][patchNumber + 1] = curr.patch
-					end
+					table.insert(score, { 'patch_change', self.tick, channelNumber, patchNumber, curr.type })
+					prev.patch = curr.patch
 				end
-				table.insert(score, { 'patch_change', self.tick, channelNumber, patchNumber, curr.type })
-				prev.patch = curr.patch
-			end
-			if curr.volume ~= prev.volume then
-				table.insert(score, { 'volume_change', self.tick, channelNumber, curr.volume })
-				prev.volume = curr.volume
-			end
-			if curr.panpot ~= prev.panpot then
-				table.insert(score, { 'panpot_change', self.tick, channelNumber, curr.panpot })
-				prev.panpot = curr.panpot
-			end
-			if curr.midikey ~= prev.midikey then
-				table.insert(score, { 'absolute_pitch_change', self.tick, channelNumber, curr.midikey })
-				prev.midikey = curr.midikey
+
+				if curr.panpot ~= prev.panpot then
+					table.insert(score, { 'panpot_change', self.tick, channelNumber, curr.panpot })
+					prev.panpot = curr.panpot
+				end
+				if curr.midikey ~= prev.midikey then
+					table.insert(score, { 'absolute_pitch_change', self.tick, channelNumber, curr.midikey })
+					prev.midikey = curr.midikey
+				end
 			end
 		end;
 
