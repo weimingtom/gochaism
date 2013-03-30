@@ -844,7 +844,7 @@ function VGMSoundWriter()
 		end;
 
 		-- static gbNoiseFreqRegToNote
-		-- @param number noise frequency register value
+		-- @param number noise frequency (Hz)
 		-- @return number FlMML compatible noise note number
 		gbNoiseFreqRegToNote = function(freq)
 			local flmmlGbNoiseLookup = {
@@ -866,6 +866,32 @@ function VGMSoundWriter()
 			end
 
 			error(string.format("illegal gameboy noise frequency value 0x%06x", freq))
+		end;
+
+		-- static nesNoiseFreqToNote
+		-- @param number noise frequency (Hz)
+		-- @return number FlMML compatible noise note number
+		nesNoiseFreqToNote = function(freq)
+			local flmmlNESNoiseLookup = {
+				0x002, 0x004, 0x008, 0x010, 0x020, 0x030, 0x040, 0x050,
+				0x065, 0x07f, 0x0be, 0x0fe, 0x17d, 0x1fc, 0x3f9, 0x7f2
+			}
+
+			-- search in table (search the nearest one)
+			local bestDiff = math.huge
+			local bestIndex = 1
+			for index, targetFreqReg in ipairs(flmmlNESNoiseLookup) do
+				local targetFreq = 1789772.5 / targetFreqReg
+				local diff = math.abs(freq - targetFreq)
+				if diff < bestDiff then
+					bestIndex = index
+					bestDiff = diff
+				else
+					break
+				end
+			end
+
+			return bestIndex - 1
 		end;
 
 		-- static gbNoiseFreqToNote
