@@ -42,36 +42,6 @@ function PCESoundWriter()
 		return 3579545.0 / reg
 	end;
 
-	-- static gbNoiseFreqToNote
-	-- @param number noise frequency register value
-	-- @return number FlMML compatible noise note number
-	self.gbNoiseFreqToNote = function(freq)
-		local gbNoiseLookup = {
-			0x000002, 0x000004, 0x000008, 0x00000c, 0x000010, 0x000014, 0x000018, 0x00001c,
-			0x000020, 0x000028, 0x000030, 0x000038, 0x000040, 0x000050, 0x000060, 0x000070,
-			0x000080, 0x0000a0, 0x0000c0, 0x0000e0, 0x000100, 0x000140, 0x000180, 0x0001c0,
-			0x000200, 0x000280, 0x000300, 0x000380, 0x000400, 0x000500, 0x000600, 0x000700,
-			0x000800, 0x000a00, 0x000c00, 0x000e00, 0x001000, 0x001400, 0x001800, 0x001c00,
-			0x002000, 0x002800, 0x003000, 0x003800, 0x004000, 0x005000, 0x006000, 0x007000,
-			0x008000, 0x00a000, 0x00c000, 0x00e000, 0x010000, 0x014000, 0x018000, 0x01c000,
-			0x020000, 0x028000, 0x030000, 0x038000, 0x040000, 0x050000, 0x060000, 0x070000
-		}
-
-		-- search in table (search the nearest one)
-		local bestDiff = math.huge
-		local bestIndex = 1
-		for index, targetFreqReg in ipairs(gbNoiseLookup) do
-		local targetFreq = 1048576.0 / targetFreqReg
-			local diff = math.abs(freq - targetFreq)
-			if diff < bestDiff then
-				bestIndex = index
-				bestDiff = diff
-			end
-		end
-
-		return bestIndex - 1
-	end;
-
 	-- convert 5bit wave to 8bit wave
 	self.byte5bitTo8bit = function(bytestring)
 		if bytestring == nil then
