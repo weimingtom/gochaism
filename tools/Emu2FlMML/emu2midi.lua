@@ -343,7 +343,7 @@ function VGMSoundWriter()
 				end
 
 				-- mml join
-				mml = mml .. "@E1,0,0,180,0"
+				mml = mml .. "@E1,0,0,180,0Q16"
 				for mmlPartIndex, mmlPart in ipairs(mmlArray) do
 					mml = mml .. mmlPart
 				end
