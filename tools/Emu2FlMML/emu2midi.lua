@@ -251,6 +251,9 @@ function VGMSoundWriter()
 			local tickToMML = function(tick)
 				return string.format("%%%d", tick * MML_TICK_MUL)
 			end
+			local needsTie = function(flmmlPatchCmd)
+				return flmmlPatchCmd ~= "@7" and flmmlPatchCmd ~= "@8" and flmmlPatchCmd:sub(1,2) ~= "@9"
+			end
 
 			local scores = self:getFlMMLScore()
 			local mml = ""
@@ -276,7 +279,7 @@ function VGMSoundWriter()
 							--   you want to use something like c4&@v10c4 .
 							-- Real NES RP2A03 doesn't need tie for them, though.
 							-- Therefore, omit ties for these channels for now.
-							if flmmlPatchCmd ~= "@7" and flmmlPatchCmd ~= "@8" and flmmlPatchCmd:sub(1,2) ~= "@9" then
+							if needsTie(flmmlPatchCmd) then
 								table.insert(mmlArray, "&")
 								prev.slurEventIndex = #mmlArray
 							end
@@ -329,8 +332,10 @@ function VGMSoundWriter()
 						-- write note command
 						local noteTickDiff = nextTick - tick
 						table.insert(mmlArray, string.format("%s%s%s", octMML, noteMML, tickToMML(noteTickDiff)))
-						table.insert(mmlArray, "&")
-						prev.slurEventIndex = #mmlArray
+						if needsTie(flmmlPatchCmd) then
+							table.insert(mmlArray, "&")
+							prev.slurEventIndex = #mmlArray
+						end
 						prev.tick = nextTick -- cancel next tick diff event
 
 --						local octMML, noteMML = keyToMML(event[4])
