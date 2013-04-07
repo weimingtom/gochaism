@@ -135,7 +135,10 @@ emu.registerafter(function()
 	ch = snd.rp2a03.dpcm
 	ch.type = writer.CHANNEL_TYPE.DPCM
 	ch.midikey = ch.regs.frequency
-	ch.patch = string.format("%d,%d,%s", ch.dmcseed, ch.dmcloop and 1 or 0, base64.encode(memory.readbyterange(ch.dmcaddress, ch.dmcsize)))
+	ch.patch = nil
+	if ch.volume ~= 0 then
+		ch.patch = string.format("%d,%d,%s", ch.dmcseed, ch.dmcloop and 1 or 0, base64.encode(memory.readbyterange(ch.dmcaddress, ch.dmcsize)))
+	end
 	table.insert(channels, ch)
 
 	writer:write(channels)

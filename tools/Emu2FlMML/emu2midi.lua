@@ -254,6 +254,7 @@ function VGMSoundWriter()
 
 			local scores = self:getFlMMLScore()
 			local mml = ""
+			local flmmlPatchCmd = ""
 			for scoreIndex, score in ipairs(scores) do
 				local mmlArray = {}
 				local noteInfo = nil
@@ -269,8 +270,16 @@ function VGMSoundWriter()
 						local tickMML = tickToMML(tickDiff)
 						if noteInfo then
 							table.insert(mmlArray, string.format("%s%s", noteInfo.noteMML, tickMML))
-							table.insert(mmlArray, "&")
-							prev.slurEventIndex = #mmlArray
+							-- NES noise and DPCM has a problem with tie (&)
+							--   for instance, c4&c4 doesn't work well.
+							--   c4&4 works well, but it is problematic when
+							--   you want to use something like c4&@v10c4 .
+							-- Real NES RP2A03 doesn't need tie for them, though.
+							-- Therefore, omit ties for these channels for now.
+							if flmmlPatchCmd ~= "@7" and flmmlPatchCmd ~= "@8" and flmmlPatchCmd:sub(1,2) ~= "@9" then
+								table.insert(mmlArray, "&")
+								prev.slurEventIndex = #mmlArray
+							end
 						else
 							-- eliminate slur
 							if prev.slurEventIndex then
@@ -299,7 +308,8 @@ function VGMSoundWriter()
 					elseif eventName == 'pitch_wheel_change' then
 						table.insert(mmlArray, string.format("@D%d", event[4]))
 					elseif eventName == 'patch_change' then
-						table.insert(mmlArray, self:getFlMMLPatchCmd(event[5], event[4]))
+						flmmlPatchCmd = self:getFlMMLPatchCmd(event[5], event[4])
+						table.insert(mmlArray, flmmlPatchCmd)
 					elseif eventName == 'note_on' and event[5] ~= 0 then
 						-- assert: next event has different tick, no events left at this time
 						if eventIndex >= #score or tick >= score[eventIndex + 1][2] then
