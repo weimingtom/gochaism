@@ -58,9 +58,6 @@ function VGMSoundWriter()
 		-- minimal volume (mute very small volume)
 		VOLUME_MUTE_THRESHOLD = 0.0;
 
-		-- true if ignore events during volume=0
-		STRIP_EVENT_DURING_MUTE = false;
-
 		-- midi note velocity value
 		NOTE_VELOCITY = 100;
 
@@ -148,7 +145,7 @@ function VGMSoundWriter()
 				prev.volume = currVolume
 			end
 
-			if currVolume ~= 0.0 or not self.STRIP_EVENT_DURING_MUTE then
+			if currVolume ~= 0.0 then
 				if curr.patch ~= prev.patch then
 					local patchNumber = nil
 					if type(curr.patch) == "number" then
