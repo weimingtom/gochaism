@@ -249,7 +249,7 @@ function VGMSoundWriter()
 				return string.format("%%%d", tick * MML_TICK_MUL)
 			end
 			local needsTie = function(flmmlPatchCmd)
-				return flmmlPatchCmd ~= "@7" and flmmlPatchCmd ~= "@8" and flmmlPatchCmd:sub(1,2) ~= "@9"
+				return flmmlPatchCmd ~= "@7" and flmmlPatchCmd ~= "@8" and flmmlPatchCmd:sub(1,2) ~= "@9" and flmmlPatchCmd ~= "@11" and flmmlPatchCmd ~= "@12"
 			end
 
 			local scores = self:getFlMMLScore()
@@ -270,7 +270,7 @@ function VGMSoundWriter()
 						local tickMML = tickToMML(tickDiff)
 						if noteInfo then
 							table.insert(mmlArray, string.format("%s%s", noteInfo.noteMML, tickMML))
-							-- NES noise and DPCM has a problem with tie (&)
+							-- NES/GB noise and DPCM has a problem with tie (&)
 							--   for instance, c4&c4 doesn't work well.
 							--   c4&4 works well, but it is problematic when
 							--   you want to use something like c4&@v10c4 .
