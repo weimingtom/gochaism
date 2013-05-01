@@ -130,6 +130,8 @@ emu.registerafter(function()
 			ch.patch = writer.bytestohex(writer.byte5bitTo8bit(ch.waveform))
 		end
 
+		--ch.volume = math.pow(10.0, (-1.5 * (0x1f - ch.regs.volume)) / 20.0) -- envelope only
+		--ch.volume = (math.pow(10.0, (-3.0 * (0xf - ch.regs.leftvolume)) / 20.0) + math.pow(10.0, (-3.0 * (0xf - ch.regs.rightvolume)) / 20.0)) / 2 -- w/o envelope
 		if ch.regs.volume == 0 then
 			ch.volume = 0
 		end
