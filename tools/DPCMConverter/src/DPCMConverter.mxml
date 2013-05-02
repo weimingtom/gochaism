@@ -6,6 +6,18 @@
 			import __AS3__.vec.Vector;
 			import jp.logicmachine.DPCMConverter.PCMData;
 			
+			private const INPUTVOLUME_DATAPROVIDER:Array = [
+				{ label:  "10%", data: 0.1 },
+				{ label:  "20%", data: 0.2 },
+				{ label:  "30%", data: 0.3 },
+				{ label:  "40%", data: 0.4 },
+				{ label:  "50%", data: 0.5 },
+				{ label:  "60%", data: 0.6 },
+				{ label:  "70%", data: 0.7 },
+				{ label:  "80%", data: 0.8 },
+				{ label:  "90%", data: 0.9 },
+				{ label: "100%", data: 1.0 }
+			];
 			private const SAMPLERATE_DATAPROVIDER:Array = [
 				{ label:  "4.18KHz", data: 0x00 },
 				{ label:  "4.71KHz", data: 0x01 },
@@ -99,6 +111,13 @@
 					if(normalizeCheck.selected){
 						for(i = 0; i < monodata.length; i++){
 							monodata[i] /= maxLevel;
+						}
+					}
+					// 入力音量の調整
+					if(inputVolumeCb.selectedItem.data != 1.0){
+						var scale:Number = inputVolumeCb.selectedItem.data;
+						for(i = 0; i < monodata.length; i++){
+							monodata[i] *= scale;
 						}
 					}
 	
@@ -198,6 +217,8 @@
 		<mx:RadioButton id="stereoRight" x="367" y="38" label="右チャンネルのみ使用" selected="false"/>
 		<mx:Label x="10" y="68" text="読み込みオプション:"/>
 		<mx:CheckBox id="normalizeCheck" x="138" y="66" label="ピーク音量を0dBに揃える"/>
+		<mx:Label x="284" y="68" text="音量:"/>
+		<mx:ComboBox id="inputVolumeCb" x="317" y="66" editable="false" dataProvider="{INPUTVOLUME_DATAPROVIDER}" selectedIndex="9"></mx:ComboBox>
 		<mx:Label x="10" y="98" text="DPCMサンプリングレート:"/>
 		<mx:ComboBox id="dpcmSampleRateCb" x="138" y="96" editable="false" dataProvider="{SAMPLERATE_DATAPROVIDER}" selectedIndex="0"></mx:ComboBox>
 		<mx:Label x="10" y="126" text="書き込みオプション:"/>
