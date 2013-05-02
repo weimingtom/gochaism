@@ -7,16 +7,26 @@
 			import jp.logicmachine.DPCMConverter.PCMData;
 			
 			private const INPUTVOLUME_DATAPROVIDER:Array = [
-				{ label:  "10%", data: 0.1 },
-				{ label:  "20%", data: 0.2 },
-				{ label:  "30%", data: 0.3 },
-				{ label:  "40%", data: 0.4 },
-				{ label:  "50%", data: 0.5 },
-				{ label:  "60%", data: 0.6 },
-				{ label:  "70%", data: 0.7 },
-				{ label:  "80%", data: 0.8 },
-				{ label:  "90%", data: 0.9 },
-				{ label: "100%", data: 1.0 }
+				{ label:   "5%", data: 0.05 },
+				{ label:  "10%", data: 0.10 },
+				{ label:  "15%", data: 0.15 },
+				{ label:  "20%", data: 0.20 },
+				{ label:  "25%", data: 0.25 },
+				{ label:  "30%", data: 0.30 },
+				{ label:  "35%", data: 0.35 },
+				{ label:  "40%", data: 0.40 },
+				{ label:  "45%", data: 0.45 },
+				{ label:  "50%", data: 0.50 },
+				{ label:  "55%", data: 0.55 },
+				{ label:  "60%", data: 0.60 },
+				{ label:  "65%", data: 0.65 },
+				{ label:  "70%", data: 0.70 },
+				{ label:  "75%", data: 0.75 },
+				{ label:  "80%", data: 0.80 },
+				{ label:  "85%", data: 0.85 },
+				{ label:  "90%", data: 0.90 },
+				{ label:  "95%", data: 0.95 },
+				{ label: "100%", data: 1.00 }
 			];
 			private const SAMPLERATE_DATAPROVIDER:Array = [
 				{ label:  "4.18KHz", data: 0x00 },
@@ -130,7 +140,7 @@
 						sampleStep = dpcmSampleRate / pcmdata.sampleRate;
 					}
 					var delta:int = int(Math.round((monodata[0] + 1.0) / 2.0 * 127.0)), startdelta:int = delta;
-					var dmcShift:int = 8, dmcSize:int = 0, dmcBits:int = 0, nSampleSize:int = pcmdata.samplesNum;
+					var dmcShift:int = 8, dmcBits:int = 0, nSampleSize:int = pcmdata.samplesNum;
 					var sampleCount:Number = sampleStep;
 					i = 0;
 					do {
@@ -150,7 +160,6 @@
 							dpcmData.writeByte(dmcBits);
 							dmcShift = 8;
 							dmcBits = 0;
-							dmcSize++;
 						}
 	
 						sampleCount -= 1.0;
@@ -162,15 +171,21 @@
 						}
 					} while(i < nSampleSize);
 					
+					// 末尾の余りビットを出力
+					if(dmcShift != 8){
+						// 最終音量を保つようにして出力
+						var dmcMask:int = (1 << dmcShift) - 1;
+						dmcBits >>= (dmcShift - 1);
+						dmcBits |= 0x55 & ~dmcMask;
+					}
+					
 					// サイズチェック
 					if(dpcmData.length >= 0x0ff1){
 						throw new Error("DPCMとして使用できる長さを超えています");
 					}
 					// DPCM再生サイズ境界調整
-					if(dmcAlignCheck.selected){
-						while((dpcmData.length - 1) % 16 != 0){
-							dpcmData.writeByte(0x55);
-						}
+					while((dpcmData.length - 1) % 16 != 0){
+						dpcmData.writeByte(0x55);
 					}
 					// ここからBASE64エンコード
 					var dpcmStr:String = "", bufferedBits:int = 0, curBuffer:int = 0;
@@ -218,14 +233,14 @@
 		<mx:Label x="10" y="68" text="読み込みオプション:"/>
 		<mx:CheckBox id="normalizeCheck" x="138" y="66" label="ピーク音量を0dBに揃える"/>
 		<mx:Label x="284" y="68" text="音量:"/>
-		<mx:ComboBox id="inputVolumeCb" x="317" y="66" editable="false" dataProvider="{INPUTVOLUME_DATAPROVIDER}" selectedIndex="9"></mx:ComboBox>
+		<mx:ComboBox id="inputVolumeCb" x="317" y="66" editable="false" dataProvider="{INPUTVOLUME_DATAPROVIDER}" selectedIndex="19"></mx:ComboBox>
 		<mx:Label x="10" y="98" text="DPCMサンプリングレート:"/>
 		<mx:ComboBox id="dpcmSampleRateCb" x="138" y="96" editable="false" dataProvider="{SAMPLERATE_DATAPROVIDER}" selectedIndex="0"></mx:ComboBox>
 		<mx:Label x="10" y="126" text="書き込みオプション:"/>
-		<mx:CheckBox id="dmcAlignCheck" x="138" y="124" label="サイズ境界(1+16n)を揃える" selected="true"/>
+		<mx:CheckBox id="dmcAlignCheck" x="138" y="124" label="サイズ境界(1+16n)を揃える" selected="true" enabled="false"/>
 		<mx:Label x="10" y="150" text="変換結果:"/>
 		<mx:TextArea id="resultBox" left="10" top="176" right="10" bottom="40"/>
 		<mx:Button x="10" label="変換する" bottom="10" click="convert();"/>
-		<mx:Label right="10" bottom="12" text="Based on FlMML and DMCconv"/>
+		<mx:Label right="10" bottom="12" text="Based on FlMML and DMCconv, Programmed by arche, Modified by gocha"/>
 	</mx:Panel>
 </mx:Application>
