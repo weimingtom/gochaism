@@ -167,6 +167,7 @@
 					var startdelta:int = int(Math.round((resampdata[0] + 1.0) / 2.0 * 127.0)), delta:int = startdelta;
 					var dmcShift:int = 8, dmcBits:int = 0;
 					var dmcIncrease:Boolean = true;
+					var dmcIncreaseLast:Boolean = true;
 					for(i = 0; i < resampdata.length; i++) {
 						dmcBits >>= 1;
 						
@@ -175,6 +176,10 @@
 						// 等しい場合は次のサンプルに基づいて決定(気休め)
 						if(resampdata[i] == deltaFloat && (i + 1) < resampdata.length){
 							dmcIncrease = (resampdata[i + 1] > deltaFloat);
+							// 次まで等しい場合は直前の変化に揃える(超気休め)
+							if(resampdata[i + 1] == deltaFloat){
+								dmcIncrease = dmcIncreaseLast
+							}
 						}
 						
 						if(dmcIncrease){
@@ -187,6 +192,7 @@
 								delta -= 2;
 							}
 						}
+						dmcIncreaseLast = dmcIncrease
 						
 						if(--dmcShift == 0){
 							dpcmData.writeByte(dmcBits);
