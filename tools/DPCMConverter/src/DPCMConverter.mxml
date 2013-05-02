@@ -22,7 +22,8 @@
 				{ label: "16.88KHz", data: 0x0c },
 				{ label: "21.30KHz", data: 0x0d },
 				{ label: "24.86KHz", data: 0x0e },
-				{ label: "33.14KHz", data: 0x0f }
+				{ label: "33.14KHz", data: 0x0f },
+				{ label: "変換なし", data: -1 }
 			];
 			private const DMC_TABLE:Array = [
 				0xD60, 0xBE0, 0xAA0, 0xA00, 0x8F0, 0x7F0, 0x710, 0x6B0,
@@ -101,9 +102,14 @@
 						}
 					}
 	
-					// ここからDMCconvの処理
+					// ここからDMCconvベースの処理
 					var dpcmData:ByteArray = new ByteArray();
-					var sampleStep:Number = ((1789772.5 * 8) / DMC_TABLE[dpcmSampleRate.selectedItem.data]) / pcmdata.sampleRate;
+					var sampleStep:Number = 1;
+					var dpcmSampleRate:Number = pcmdata.sampleRate;
+					if(dpcmSampleRateCb.selectedItem.data != -1){
+						dpcmSampleRate = ((1789772.5 * 8) / DMC_TABLE[dpcmSampleRateCb.selectedItem.data]);
+						sampleStep = dpcmSampleRate / pcmdata.sampleRate;
+					}
 					var delta:int = int(Math.round((monodata[0] + 1.0) / 2.0 * 127.0)), startdelta:int = delta;
 					var dmcShift:int = 8, dmcSize:int = 0, dmcBits:int = 0, nSampleSize:int = pcmdata.samplesNum;
 					var sampleCount:Number = sampleStep;
@@ -141,7 +147,12 @@
 					if(dpcmData.length >= 0x0ff1){
 						throw new Error("DPCMとして使用できる長さを超えています");
 					}
-					
+					// DPCM再生サイズ境界調整
+					if(dmcAlignCheck.selected){
+						while((dpcmData.length - 1) % 16 != 0){
+							dpcmData.writeByte(0x55);
+						}
+					}
 					// ここからBASE64エンコード
 					var dpcmStr:String = "", bufferedBits:int = 0, curBuffer:int = 0;
 					dpcmData.position = 0;
@@ -188,9 +199,11 @@
 		<mx:Label x="10" y="68" text="読み込みオプション:"/>
 		<mx:CheckBox id="normalizeCheck" x="138" y="66" label="ピーク音量を0dBに揃える"/>
 		<mx:Label x="10" y="98" text="DPCMサンプリングレート:"/>
-		<mx:ComboBox id="dpcmSampleRate" x="138" y="96" editable="false" dataProvider="{SAMPLERATE_DATAPROVIDER}" selectedIndex="0"></mx:ComboBox>
-		<mx:Label x="10" y="124" text="変換結果:"/>
-		<mx:TextArea id="resultBox" left="10" top="150" right="10" bottom="40"/>
+		<mx:ComboBox id="dpcmSampleRateCb" x="138" y="96" editable="false" dataProvider="{SAMPLERATE_DATAPROVIDER}" selectedIndex="0"></mx:ComboBox>
+		<mx:Label x="10" y="126" text="書き込みオプション:"/>
+		<mx:CheckBox id="dmcAlignCheck" x="138" y="124" label="サイズ境界(1+16n)を揃える" selected="true"/>
+		<mx:Label x="10" y="150" text="変換結果:"/>
+		<mx:TextArea id="resultBox" left="10" top="176" right="10" bottom="40"/>
 		<mx:Button x="10" label="変換する" bottom="10" click="convert();"/>
 		<mx:Label right="10" bottom="12" text="Based on FlMML and DMCconv"/>
 	</mx:Panel>
