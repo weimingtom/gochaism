@@ -130,46 +130,88 @@
 							monodata[i] *= scale;
 						}
 					}
-	
-					// ここからDMCconvベースの処理
-					var dpcmData:ByteArray = new ByteArray();
-					var sampleStep:Number = 1;
+					// リサンプリング
 					var dpcmSampleRate:Number = pcmdata.sampleRate;
+					var sampleStep:Number = 1;
 					if(dpcmSampleRateCb.selectedItem.data != -1){
 						dpcmSampleRate = ((1789772.5 * 8) / DMC_TABLE[dpcmSampleRateCb.selectedItem.data]);
-						sampleStep = dpcmSampleRate / pcmdata.sampleRate;
+						// サンプルレートの差が1.0未満なら変換しない
+						if (Math.abs(dpcmSampleRate - pcmdata.sampleRate) >= 1.0){
+							sampleStep = dpcmSampleRate / pcmdata.sampleRate;
+						}
 					}
-					var delta:int = int(Math.round((monodata[0] + 1.0) / 2.0 * 127.0)), startdelta:int = delta;
-					var dmcShift:int = 8, dmcBits:int = 0, nSampleSize:int = pcmdata.samplesNum;
 					var sampleCount:Number = sampleStep;
+					var resampdata:Vector.<Number> = new Vector.<Number>();
 					i = 0;
-					do {
+					while(i < monodata.length) {
+						while(sampleCount > 0.0){
+							resampdata.push(monodata[i]);
+							sampleCount -= 1.0;
+						}
+						while(sampleCount <= 0.0) {
+							sampleCount += sampleStep;
+							++i;
+						}
+					}
+					// DPCM再生サイズ境界調整
+					if(dmcAlignCheck.selected){
+						// 出力が 1+16n バイトになるよう入力サンプルを追加
+						var lastSample:Number = resampdata[resampdata.length - 1];
+						while((resampdata.length - 8) % 128 != 0){
+							resampdata.push(lastSample);
+						}
+					}
+
+					// ここからDMCconvベースの変換処理
+					var dpcmData:ByteArray = new ByteArray();
+					var startdelta:int = int(Math.round((resampdata[0] + 1.0) / 2.0 * 127.0)), delta:int = startdelta;
+					var dmcShift:int = 8, dmcBits:int = 0;
+					var dmcIncrease:Boolean = true;
+					for(i = 0; i < resampdata.length; i++) {
 						dmcBits >>= 1;
-						if(monodata[i] > (Number(delta - 0x40) / 0x40)){
-							if(++delta > 0x7f){
-								delta = 0x7f;
+						
+						var deltaFloat:Number = Number(delta - 0x40) / 0x40;
+						dmcIncrease = (resampdata[i] > deltaFloat);
+						// 等しい場合は次のサンプルに基づいて決定(気休め)
+						if(resampdata[i] == deltaFloat && (i + 1) < resampdata.length){
+							dmcIncrease = (resampdata[i + 1] > deltaFloat);
+						}
+						
+						if(dmcIncrease){
+							if(delta < 126){
+								delta += 2;
 							}
 							dmcBits |= 0x80;
 						}else{
-							if(--delta < 0){
-								delta = 0;
+							if(delta > 1){
+								delta -= 2;
 							}
 						}
-	
+						
 						if(--dmcShift == 0){
 							dpcmData.writeByte(dmcBits);
 							dmcShift = 8;
 							dmcBits = 0;
 						}
-	
-						sampleCount -= 1.0;
-						while(sampleCount < 0.0) {
-							sampleCount += sampleStep;
-							if(++i >= nSampleSize){
-								break;
-							}
-						}
-					} while(i < nSampleSize);
+					}
+					
+					// 初期音量に戻るまで出力
+					//if(backToInitVolCheck.selected){
+					//	while(delta != startdelta){
+					//		dmcBits >>= 1;
+					//		if(delta < startdelta){
+					//			delta += 2;
+					//			dmcBits |= 0x80;
+					//		}else{
+					//			delta -= 2;
+					//		}
+					//		if(--dmcShift == 0){
+					//			dpcmData.writeByte(dmcBits);
+					//			dmcShift = 8;
+					//			dmcBits = 0;
+					//		}
+					//	}
+					//}
 					
 					// 末尾の余りビットを出力
 					if(dmcShift != 8){
@@ -177,15 +219,12 @@
 						var dmcMask:int = (1 << dmcShift) - 1;
 						dmcBits >>= (dmcShift - 1);
 						dmcBits |= 0x55 & ~dmcMask;
+						dpcmData.writeByte(dmcBits);
 					}
 					
 					// サイズチェック
 					if(dpcmData.length >= 0x0ff1){
 						throw new Error("DPCMとして使用できる長さを超えています");
-					}
-					// DPCM再生サイズ境界調整
-					while((dpcmData.length - 1) % 16 != 0){
-						dpcmData.writeByte(0x55);
 					}
 					// ここからBASE64エンコード
 					var dpcmStr:String = "", bufferedBits:int = 0, curBuffer:int = 0;
@@ -235,12 +274,12 @@
 		<mx:Label x="284" y="68" text="音量:"/>
 		<mx:ComboBox id="inputVolumeCb" x="317" y="66" editable="false" dataProvider="{INPUTVOLUME_DATAPROVIDER}" selectedIndex="19"></mx:ComboBox>
 		<mx:Label x="10" y="98" text="DPCMサンプリングレート:"/>
-		<mx:ComboBox id="dpcmSampleRateCb" x="138" y="96" editable="false" dataProvider="{SAMPLERATE_DATAPROVIDER}" selectedIndex="0"></mx:ComboBox>
+		<mx:ComboBox id="dpcmSampleRateCb" x="138" y="96" editable="false" dataProvider="{SAMPLERATE_DATAPROVIDER}" selectedIndex="15"></mx:ComboBox>
 		<mx:Label x="10" y="126" text="書き込みオプション:"/>
-		<mx:CheckBox id="dmcAlignCheck" x="138" y="124" label="サイズ境界(1+16n)を揃える" selected="true" enabled="false"/>
+		<mx:CheckBox id="dmcAlignCheck" x="138" y="124" label="サイズ境界(1+16n)に合わせる(推奨)" selected="true"/>
 		<mx:Label x="10" y="150" text="変換結果:"/>
 		<mx:TextArea id="resultBox" left="10" top="176" right="10" bottom="40"/>
 		<mx:Button x="10" label="変換する" bottom="10" click="convert();"/>
-		<mx:Label right="10" bottom="12" text="Based on FlMML and DMCconv, Programmed by arche, Modified by gocha"/>
+		<mx:Label right="10" bottom="12" text="Based on FlMML and DMCconv, Programmed by arche, gocha"/>
 	</mx:Panel>
 </mx:Application>
