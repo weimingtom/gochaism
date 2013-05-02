@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" creationComplete="init();">
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import __AS3__.vec.Vector;
+			import jp.logicmachine.DPCMConverter.PCMData;
+			
+			private const SAMPLERATE_DATAPROVIDER:Array = [
+				{ label:  "4.18KHz", data: 0x00 },
+				{ label:  "4.71KHz", data: 0x01 },
+				{ label:  "5.26KHz", data: 0x02 },
+				{ label:  "5.59KHz", data: 0x03 },
+				{ label:  "6.26KHz", data: 0x04 },
+				{ label:  "7.05KHz", data: 0x05 },
+				{ label:  "7.92KHz", data: 0x06 },
+				{ label:  "8.36KHz", data: 0x07 },
+				{ label:  "9.42KHz", data: 0x08 },
+				{ label: "11.18KHz", data: 0x09 },
+				{ label: "12.60KHz", data: 0x0a },
+				{ label: "13.98KHz", data: 0x0b },
+				{ label: "16.88KHz", data: 0x0c },
+				{ label: "21.30KHz", data: 0x0d },
+				{ label: "24.86KHz", data: 0x0e },
+				{ label: "33.14KHz", data: 0x0f }
+			];
+			private const DMC_TABLE:Array = [
+				0xD60, 0xBE0, 0xAA0, 0xA00, 0x8F0, 0x7F0, 0x710, 0x6B0,
+				0x5F0, 0x500, 0x470, 0x400, 0x350, 0x2A0, 0x240, 0x1B0,
+			];
+			private const BASE64_TABLE:Array = [
+				'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+				'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+				'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+				'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/',
+			];
+			
+			private var m_file:FileReference = new FileReference();
+
+			private function init():void {
+				m_file.addEventListener(Event.SELECT, selectFileHandler);
+				m_file.addEventListener(Event.COMPLETE, fileLoadHandler);
+			}
+			
+			private function openFile():void {
+				m_file.browse( [ new FileFilter("WAVEファイル (*.wav)", "*.wav"), new FileFilter("すべてのファイル", "*.*") ] );
+			}
+			private function convert():void {
+				// ファイルロードして続きはfileLoadHandler()で。
+				m_file.load();
+			}
+			
+			private function selectFileHandler(event:Event):void {
+				m_file = FileReference(event.target);
+				fileNameLabel.text = "開いたファイル: " + m_file.name;
+			}
+			private function fileLoadHandler(event:Event):void {
+				try{
+					var i:int, j:int;
+	
+					var pcmdata:PCMData = new PCMData();
+					pcmdata.fromWaveFile(m_file.data);
+					
+					// 前処理(チャンネル選択・ノーマライズ)
+					var maxLevel:Number = 0.0;
+					var monodata:Vector.<Number> = new Vector.<Number>(pcmdata.samplesNum);
+					if(pcmdata.channels == 1){
+						for(i = 0; i < pcmdata.samplesNum; i++){
+							if(Math.abs(pcmdata.data[0][i]) > maxLevel){
+								maxLevel = Math.abs(pcmdata.data[0][i]);
+							}
+							monodata[i] = pcmdata.data[0][i];
+						}
+					}else{
+						if(stereoMix.selected){
+							for(i = 0; i < pcmdata.samplesNum; i++){
+								var current:Number = (pcmdata.data[0][i] + pcmdata.data[1][i]) / 2;
+								if(Math.abs(current) > maxLevel){
+									maxLevel = Math.abs(current);
+								}
+								monodata[i] = current;
+							}
+						}else{
+							var channel:int;
+							if(stereoLeft.selectedField){
+								channel = 0;
+							}else{
+								channel = 1;
+							}
+							for(i = 0; i < pcmdata.samplesNum; i++){
+								if(Math.abs(pcmdata.data[channel][i]) > maxLevel){
+									maxLevel = Math.abs(pcmdata.data[channel][i]);
+								}
+								monodata[i] = pcmdata.data[channel][i];
+							}
+						}
+					}
+					if(normalizeCheck.selected){
+						for(i = 0; i < monodata.length; i++){
+							monodata[i] /= maxLevel;
+						}
+					}
+	
+					// ここからDMCconvの処理
+					var dpcmData:ByteArray = new ByteArray();
+					var sampleStep:Number = ((1789772.5 * 8) / DMC_TABLE[dpcmSampleRate.selectedItem.data]) / pcmdata.sampleRate;
+					var delta:int = int(Math.round((monodata[0] + 1.0) / 2.0 * 127.0)), startdelta:int = delta;
+					var dmcShift:int = 8, dmcSize:int = 0, dmcBits:int = 0, nSampleSize:int = pcmdata.samplesNum;
+					var sampleCount:Number = sampleStep;
+					i = 0;
+					do {
+						dmcBits >>= 1;
+						if(monodata[i] > (Number(delta - 0x40) / 0x40)){
+							if(++delta > 0x7f){
+								delta = 0x7f;
+							}
+							dmcBits |= 0x80;
+						}else{
+							if(--delta < 0){
+								delta = 0;
+							}
+						}
+	
+						if(--dmcShift == 0){
+							dpcmData.writeByte(dmcBits);
+							dmcShift = 8;
+							dmcBits = 0;
+							dmcSize++;
+						}
+	
+						sampleCount -= 1.0;
+						while(sampleCount < 0.0) {
+							sampleCount += sampleStep;
+							if(++i >= nSampleSize){
+								break;
+							}
+						}
+					} while(i < nSampleSize);
+					
+					// サイズチェック
+					if(dpcmData.length >= 0x0ff1){
+						throw new Error("DPCMとして使用できる長さを超えています");
+					}
+					
+					// ここからBASE64エンコード
+					var dpcmStr:String = "", bufferedBits:int = 0, curBuffer:int = 0;
+					dpcmData.position = 0;
+					while(dpcmData.position < dpcmData.length){
+						if(bufferedBits <= 5){
+							curBuffer <<= 8;
+							curBuffer |= dpcmData.readUnsignedByte();
+							bufferedBits += 8;
+						}
+						dpcmStr += BASE64_TABLE[(curBuffer >> (bufferedBits - 6)) & 0x3f];
+						bufferedBits -= 6;
+						curBuffer &= (1 << bufferedBits) - 1;
+					}
+					while(bufferedBits > 0){
+						if(bufferedBits >= 6){
+							dpcmStr += BASE64_TABLE[(curBuffer >> (bufferedBits - 6)) & 0x3f];
+						}else{
+							dpcmStr += BASE64_TABLE[(curBuffer << (6 - bufferedBits)) & 0x3f];
+						}
+						bufferedBits -= 6;
+						curBuffer &= (1 << bufferedBits) - 1;
+					}
+					while(dpcmStr.length % 4 != 0){
+						dpcmStr += '=';
+					}
+					
+					// ここからFlMML用コード出力
+					resultBox.text = "#WAV9 [n]," + startdelta.toString() + ",0," + dpcmStr;
+				}catch(error:Error){
+					Alert.show(error.message);
+				}
+			}
+			
+		]]>
+	</mx:Script>
+	<mx:Panel layout="absolute" left="10" top="10" bottom="10" right="10" title="DPCMコンバータ">
+		<mx:Label x="10" y="12" text="ファイル選択:"/>
+		<mx:Button x="138" y="10" label="ファイルを開く" click="openFile();"/>
+		<mx:Label id="fileNameLabel" x="238" y="12" text="開いたファイル: (none)"/>
+		<mx:Label x="10" y="40" text="ステレオ音源の処理:"/>
+		<mx:RadioButton id="stereoMix" x="138" y="38" label="両トラックを合成" selected="true"/>
+		<mx:RadioButton id="stereoLeft" x="239" y="38" label="左チャンネルのみ使用" selected="false"/>
+		<mx:RadioButton id="stereoRight" x="367" y="38" label="右チャンネルのみ使用" selected="false"/>
+		<mx:Label x="10" y="68" text="読み込みオプション:"/>
+		<mx:CheckBox id="normalizeCheck" x="138" y="66" label="ピーク音量を0dBに揃える"/>
+		<mx:Label x="10" y="98" text="DPCMサンプリングレート:"/>
+		<mx:ComboBox id="dpcmSampleRate" x="138" y="96" editable="false" dataProvider="{SAMPLERATE_DATAPROVIDER}" selectedIndex="0"></mx:ComboBox>
+		<mx:Label x="10" y="124" text="変換結果:"/>
+		<mx:TextArea id="resultBox" left="10" top="150" right="10" bottom="40"/>
+		<mx:Button x="10" label="変換する" bottom="10" click="convert();"/>
+		<mx:Label right="10" bottom="12" text="Based on FlMML and DMCconv"/>
+	</mx:Panel>
+</mx:Application>
