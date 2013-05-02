@@ -229,7 +229,7 @@
 					}
 					
 					// サイズチェック
-					if(dpcmData.length >= 0x0ff1){
+					if(dpcmData.length > 0x0ff1){
 						throw new Error("DPCMとして使用できる長さを超えています");
 					}
 					// ここからBASE64エンコード
