@@ -1,106 +1,74 @@
-===========================================================================================
-  SNES SPC700 Player Memory Viewer
-===========================================================================================
-                                                            Programmed by gocha (@gochaism)
+SNES SPC700 Player Memory Viewer
+--------------------------------
 
-�ڎ�
-  1. �T�v
-  2. �C���X�g�[�����@
-  3. �A���C���X�g�[�����@
-  4. ��{�I�Ȏg����
-  5. �����߂̐ݒ�
-  6. �ڍׂȐ����ɂ���
-  7. �\�t�g�E�F�A�ɂ���
+"SNES SPC700 Player Memory Viewer" は、"SNES SPC700 Player" と併せて使用できるシンプルな設計のメモリビューアです。本ソフトウェアの特徴は以下のとおりです。
 
+- DeSmuME の Memory Viewer をパクって独自に改良を加えた、メモリビューアによって、リアルタイムなメモリ状態の表示・変更を可能にします。
+- リアルタイムで APU RAM や DSP レジスタなどのメモリ状態を読み取り・書き込みすることができますので、SPC のデバッグに便利です。SNES SPC700 Player 付属の SPCCMD.EXE でも可能らしいです（問われる存在意義）
+- 外部メモリビューアの仕組み上、リアルタイム表示は非常に遅い処理と考えられますが、あえて深く考慮しないことにより、アプリの早期完成・放置プレイを実現しています。
+- UPX 圧縮を行わないことにより、ファイル サイズはとてもセクシーダイナマイト。各ランタイムや .NET Framework は一切不要で単体で動作しますが、SNES SPC700 Player がいないと何もできません。
+- レジストリの書き込みを行わないため、アンインストールはファイルを削除するだけです。とりあえずお試しで使いたい方でも、気軽にお使いいただけます。
 
-�� �T�v
-=======
-  "SNES SPC700 Player Memory Viewer" �����I�т��������܂��āA���肪�Ƃ��������܂��B
+本ソフトウェアは以下のオペレーティング システム上で動作するよう設計されています。
 
-  "SNES SPC700 Player Memory Viewer" �́A"SNES SPC700 Player" �ƕ����Ďg�p�ł���
-  �V���v���Ȑ݌v�̃������r���[�A�ł��B �{�\�t�g�E�F�A�̓����͈ȉ��̂Ƃ���ł��B
+- 32bit 版 Windows 2000, XP, Vista, 7
+- 64bit 版 Windows Vista, 7 (※)
 
-    �E DeSmuME �� Memory Viewer ���p�N���ēƎ��ɉ��ǂ��������A
-       �������r���[�A�ɂ���āA���A���^�C���ȃ�������Ԃ̕\���E�ύX���\�ɂ��܂��B
+※ 64bit 環境では WOW64 機能により 32bit 版として動作します。(タスクマネージャで *32 が表示されます)
 
-    �E ���A���^�C���� APU RAM �� DSP ���W�X�^�Ȃǂ̃�������Ԃ�
-       �ǂݎ��E�������݂��邱�Ƃ��ł��܂��̂ŁASPC �̃f�o�b�O�ɕ֗��ł��B
-       SNES SPC700 Player �t���� SPCCMD.EXE �ł��\�炵���ł��i����鑶�݈Ӌ`�j
+インストール方法
+----------------
 
-    �E �O���������r���[�A�̎d�g�ݏ�A���A���^�C���\���͔��ɒx�������ƍl�����܂����A
-       �����Đ[���l�����Ȃ����Ƃɂ��A�A�v���̑��������E���u�v���C���������Ă��܂��B
+SPCMEM.EXE を起動してください。
 
-    �E UPX ���k���s��Ȃ����Ƃɂ��A�t�@�C�� �T�C�Y�͂ƂĂ��Z�N�V�[�_�C�i�}�C�g�B
-       �e�����^�C���� .NET Framework �͈�ؕs�v�ŒP�̂œ��삵�܂����A
-       SNES SPC700 Player �����Ȃ��Ɖ����ł��܂���B
+あとは SNES SPC700 Player を起動すれば、何かが起こる――全米が涙した感動の話題作
 
-    �E ���W�X�g���̏������݂��s��Ȃ����߁A�A���C���X�g�[���̓t�@�C�����폜���邾���ł��B
-       �Ƃ肠�����������Ŏg���������ł��A�C�y�ɂ��g�����������܂��B
+SNES SPC700 Player はこちらから入手してください。 <http://dgrfactory.jp/>
 
-  �{�\�t�g�E�F�A�͈ȉ��̃I�y���[�e�B���O �V�X�e����œ��삷��悤�݌v����Ă��܂��B
+アンインストール方法
+--------------------
 
-    �E 32bit �� Windows 2000, XP, Vista, 7
-    �E 64bit �� Windows Vista, 7 (��)
+インストールしたファイルを削除してください。
 
-    �� 64bit ���ł� WOW64 �@�\�ɂ�� 32bit �łƂ��ē��삵�܂� (�^�X�N�}�l�[�W���� *32 ��
-       �\������܂�)�B
+レジストリの書き込みやシステム ファイルの変更などは行っていませんので、どう見てもファイルの削除のみでアンインストール完了です。本当にありがとうございました。
 
+基本的な使い方
+--------------
 
-�� �C���X�g�[�����@
-===================
-  SPCMEM.EXE ���N�����Ă��������B
+考えるな、感じるんだ。
 
-  ���Ƃ� SNES SPC700 Player ���N������΁A�������N����\�\
-  �S�Ă��܂��������̘b���
+お奨めの設定
+------------
 
-  SNES SPC700 Player �͂����炩����肵�Ă��������B
-  http://dgrfactory.jp/
+設定項目はありません。
 
+詳細な説明について
+------------------
 
-�� �A���C���X�g�[�����@
-=======================
-  �C���X�g�[�������t�@�C�����폜���Ă��������B
+周りのおともだちとかに聞いてください。『デグレファクトリー』様に問い合わせたりしたらおこだよ。
 
-  ���W�X�g���̏������݂�V�X�e�� �t�@�C���̕ύX�Ȃǂ͍s���Ă��܂���̂ŁA
-  �ǂ����Ă��t�@�C���̍폜�݂̂ŃA���C���X�g�[�������ł��B
-  �{���ɂ��肪�Ƃ��������܂����B
+ソフトウェアについて
+--------------------
 
+このソフトウェア (SNES SPC700 Player Memory Viewer) に関するサポートは SNES SPC700 Player を開発した『デグレファクトリー』様では行われていません。
 
-�� ��{�I�Ȏg����
-=================
-  �l����ȁA������񂾁B
+バグ報告などありましたら、下記の公開元サイト宛にお願いします。
 
+DeSmuME からコードをパクっているので、多分ライセンスは GPL だと思います。
 
-�� �����߂̐ݒ�
-===============
-  �ݒ荀�ڂ͂���܂���B
+多分ここで公開されるバージョンが一番新しいと思います。 <http://code.google.com/p/gochaism/>
 
+SNES および Super Nintendo Entertainment System は、米国 Nintendo Co. の商標です。
 
-�� �ڍׂȐ����ɂ���
-=====================
-  ����̂��Ƃ������Ƃ��ɕ����Ă��������B
-  �w�f�O���t�@�N�g���[�x�l�ɖ₢���킹���肵���炨������B
+### 謝辞 ###
 
+このソフトウェアは、主に以下のファイル、または資料を使用して開発されています。貴重な資料を公開していただき、ありがとうございます。
 
-�� �\�t�g�E�F�A�ɂ���
-=======================
-  ���̃\�t�g�E�F�A (SNES SPC700 Player Memory Viewer) �Ɋւ���T�|�[�g��
-  SNES SPC700 Player ���J�������w�f�O���t�@�N�g���[�x�l�ł͍s���Ă��܂���B
+デグレファクトリー <http://dgrfactory.jp/>
+  : SNES SPC700 Player のソースコードと README
 
-  �o�O�񍐂Ȃǂ���܂�����A��҂̂����ሶ�܂ł��肢���܂��B
-  http://twitter.com/gochaism
+DeSmuME <http://desmume.org/>
+  : Memory Viewer のソースコード
 
-  DeSmuME ����R�[�h���p�N���Ă���̂ŁA
-  �������C�Z���X�� GPL ���Ǝv���܂��B
-
-  ���������Ō��J�����o�[�W��������ԐV�����Ǝv���܂��B
-  http://code.google.com/p/gochaism/
-
-  ���̃\�t�g�E�F�A�́A��Ɉȉ��̃t�@�C���A�܂��͎������g�p���ĊJ������Ă��܂��B
-  �M�d�Ȏ��������J���Ă��������A���肪�Ƃ��������܂��B
-  �E �f�O���t�@�N�g���[         - SNES SPC700 Player �y�у\�[�X�R�[�h
-  �E DeSmuME team               - DeSmuME �� Memory Viewer
-  �E ���̑��A�������ďo�Ă����񂢂��ς�
-  �݂�Ȃ��肪�Ƃ��B
-
-  SNES ����� Super Nintendo Entertainment System �́A�č� Nintendo Co. �̏��W�ł��B
+その他、ぐぐって出てくる情報いっぱい
+  : みんなありがとう
