@@ -602,6 +602,7 @@ namespace morsegen
 		[STAThread]
 		static void Main() 
 		{
+            Application.EnableVisualStyles();
 			Application.Run(new morsegen());
 		}
 
