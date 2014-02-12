@@ -5,7 +5,7 @@ SNES SPC700 Player Memory Viewer
 
 - *Realtime memory viewing and editing*: It works so good because I have borrowed the viewer code from other tool, DeSmuME. Joking aside, it is handy for SPC analyzing.
 - *Speed*: This tool was made in a day and released very quickly. Ah, does it run quick? I don't know. It does not work slowly at least for me.
-- *Size*: SNES SPC700 Player compresses its image and it is distributed in a small package. Aside from that, this tool does not. It is beautifully plump and sexier.
+- *Size*: SNES SPC700 Player is very small because it is UPX-compressed. Aside from that, this tool does not. It is beautifully plump and sexier.
 - *Portability*: This tool does not require any runtimes such as .NET Framework. (It obviously requires SNES SPC700 Player though!) Also, it does not save any settings on your computer.
 
 This tool currently supports the following operating systems:
