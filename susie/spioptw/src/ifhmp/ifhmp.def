@@ -1,9 +1,0 @@
-LIBRARY ifhmp.spi
-DESCRIPTION "OPTWORKS HMP Susie Plug-in"
-VERSION 1.0
-EXPORTS
-  GetPluginInfo
-  IsSupported
-  GetPictureInfo
-  GetPicture
-  GetPreview
